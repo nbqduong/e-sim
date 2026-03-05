@@ -30,6 +30,10 @@ app.add_middleware(
     allow_credentials=True,
 )
 
+import os
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
 app.include_router(auth.router, prefix="/auth")
 app.include_router(documents.router)
 
@@ -37,3 +41,25 @@ app.include_router(documents.router)
 @app.get("/health")
 async def healthcheck() -> dict[str, str]:
     return {"status": "ok", "timestamp": datetime.now(tz=UTC).isoformat()}
+
+frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "out")
+if os.path.isdir(frontend_dist):
+    app.mount("/_next", StaticFiles(directory=os.path.join(frontend_dist, "_next")), name="next-static")
+    
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        file_path = os.path.join(frontend_dist, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        
+        # Check if full_path + ".html" exists
+        html_path = f"{file_path}.html"
+        if os.path.isfile(html_path):
+            return FileResponse(html_path)
+        
+        # If accessing the root or path doesn't exist, serve index.html (SPA fallback)
+        index_file = os.path.join(frontend_dist, "index.html")
+        if os.path.isfile(index_file):
+            return FileResponse(index_file)
+        
+        return {"error": "Frontend build not found"}
