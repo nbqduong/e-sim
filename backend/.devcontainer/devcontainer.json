@@ -1,0 +1,38 @@
+{
+  "name": "backend",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": ".."
+  },
+  "mounts": [
+    "source=${localWorkspaceFolder}/../frontend/out,target=/app/frontend/out,type=bind"
+  ],
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": false,
+      "installOhMyZsh": false
+    }
+  },
+  "forwardPorts": [
+    8000
+  ],
+  "runArgs": [
+    "-p",
+    "1234:8000"
+  ],
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.analysis.typeCheckingMode": "basic"
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-toolsai.jupyter"
+      ]
+    }
+  },
+  "postCreateCommand": "if [ -f requirements.txt ]; then pip install -r requirements.txt; fi",
+  "remoteUser": "root"
+}
