@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, status
 
 from app.core.config import settings
 from app.services.google_drive import GoogleDriveService
@@ -67,10 +67,17 @@ def get_google_drive_service(
 
 
 def get_current_user(
-    session_token: str = Header(..., alias="X-Session-Token"),
+    x_session_token: str | None = Header(None, alias="X-Session-Token"),
+    session_token: str | None = Cookie(None),
     session_manager: SessionManager = Depends(get_session_manager),
 ) -> SessionData:
+    token = x_session_token or session_token
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing session token",
+        )
     try:
-        return session_manager.verify(session_token)
+        return session_manager.verify(token)
     except InvalidSessionError as exc:  # pragma: no cover - defensive guard
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
