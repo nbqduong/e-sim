@@ -24,9 +24,29 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 @router.get("/", response_model=DocumentListResponse)
 async def list_documents(
     current_user: SessionData = Depends(get_current_user),
-    store: DocumentStore = Depends(get_document_store),
+    drive_service: GoogleDriveService = Depends(get_google_drive_service),
 ) -> DocumentListResponse:
-    documents = store.list_for_user(user_id=current_user.user_id)
+    try:
+        drive_files = drive_service.list_documents(user_id=current_user.user_id)
+    except DriveAuthorizationError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+    except DriveExportError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+    documents = []
+    for f in drive_files:
+        documents.append(
+            Document(
+                id=f["id"],
+                user_id=current_user.user_id,
+                title=f["name"].replace(".txt", ""),
+                content="",  # Content is not fetched during listing
+                updated_at=f.get("modifiedTime", ""),
+                drive_file_id=f["id"],
+                drive_file_url=f.get("webViewLink"),
+            )
+        )
+
     return DocumentListResponse(documents=documents)
 
 

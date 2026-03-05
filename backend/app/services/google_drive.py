@@ -24,7 +24,7 @@ class DriveExportError(RuntimeError):
 
 
 DEFAULT_DRIVE_SCOPES = [
-    "https://www.googleapis.com/auth/drive.file",
+    "https://www.googleapis.com/auth/drive",
 ]
 
 
@@ -84,6 +84,35 @@ class GoogleDriveService:
             raise DriveExportError("Failed to upload document to Google Drive") from exc
 
         return file
+
+    def list_documents(self, *, user_id: str) -> list[dict[str, Any]]:
+        token = self._token_store.get(user_id)
+        if token is None:
+            raise DriveAuthorizationError("No Google credentials found for the current user")
+
+        credentials = self._build_credentials(token)
+        if credentials.expired and credentials.refresh_token:
+            credentials.refresh(Request())
+            refreshed = token.update_from_credentials(credentials)
+            self._token_store.save(refreshed)
+
+        service = build("drive", "v3", credentials=credentials, cache_discovery=False)
+
+        # Get folder ID
+        parent_id = self._settings.google_drive_parent_id
+        folder_id = self._get_or_create_folder(service, "_ESimulate", parent_id)
+
+        # List files in the folder
+        query = f"'{folder_id}' in parents and trashed = false"
+        try:
+            results = (
+                service.files()
+                .list(q=query, spaces="drive", fields="files(id, name, webViewLink, modifiedTime)")
+                .execute()
+            )
+            return results.get("files", [])
+        except HttpError as exc:
+            raise DriveExportError("Failed to list documents from Google Drive") from exc
 
     def _get_or_create_folder(self, service: Any, folder_name: str, parent_id: str | None = None) -> str:
         query = f"name = '{folder_name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"

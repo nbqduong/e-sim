@@ -18,7 +18,7 @@ class DocumentStore(JsonStore):
             user_id=user_id,
             title=payload.title,
             content=payload.content,
-            updated_at=datetime.now(tz=timezone.utc),
+            updated_at=datetime.now(tz=timezone.utc).isoformat(),
         )
         data = self._read()
         data[document.id] = document.model_dump(mode="json")
@@ -50,7 +50,7 @@ class DocumentStore(JsonStore):
             update={
                 "title": payload.title if payload.title is not None else existing.title,
                 "content": payload.content if payload.content is not None else existing.content,
-                "updated_at": datetime.now(tz=timezone.utc),
+                "updated_at": datetime.now(tz=timezone.utc).isoformat(),
             }
         )
         data = self._read()
@@ -73,7 +73,7 @@ class DocumentStore(JsonStore):
             update={
                 "drive_file_id": file_id,
                 "drive_file_url": file_url,
-                "updated_at": datetime.now(tz=timezone.utc),
+                "updated_at": datetime.now(tz=timezone.utc).isoformat(),
             }
         )
         data = self._read()

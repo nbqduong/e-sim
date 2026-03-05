@@ -22,7 +22,7 @@ class DocumentUpdateRequest(BaseModel):
 class Document(DocumentBase):
     id: str
     user_id: str
-    updated_at: datetime
+    updated_at: str
     drive_file_id: str | None = None
     drive_file_url: str | None = None
 

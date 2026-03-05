@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import UTC, datetime
+
+os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
 from typing import Any
 
 from google.auth.transport.requests import Request
@@ -34,7 +37,7 @@ class GoogleOAuthService:
         "openid",
         "https://www.googleapis.com/auth/userinfo.email",
         "https://www.googleapis.com/auth/userinfo.profile",
-        "https://www.googleapis.com/auth/drive.file",
+        "https://www.googleapis.com/auth/drive",
     ]
 
     def __init__(
