@@ -24,7 +24,7 @@ class Document(DocumentBase):
     user_id: str
     updated_at: datetime
     drive_file_id: str | None = None
-    drive_file_url: AnyHttpUrl | None = None
+    drive_file_url: str | None = None
 
 
 class DocumentListResponse(BaseModel):
@@ -33,4 +33,4 @@ class DocumentListResponse(BaseModel):
 
 class DriveSaveResponse(BaseModel):
     drive_file_id: str
-    drive_file_url: AnyHttpUrl | None = None
+    drive_file_url: str | None = None
