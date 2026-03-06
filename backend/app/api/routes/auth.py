@@ -40,7 +40,7 @@ async def google_callback(
     try:
         auth_result = oauth_service.exchange_code(code=code, state=state)
 
-        response = RedirectResponse("/dashboard")
+        response = RedirectResponse("/documents")
         response.set_cookie(
             key="session_token",
             value=auth_result.session_token,

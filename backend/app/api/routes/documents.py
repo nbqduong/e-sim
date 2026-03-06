@@ -18,7 +18,7 @@ from app.services.google_drive import DriveAuthorizationError, DriveExportError,
 from app.services.session_manager import SessionData
 from app.storage.document_store import DocumentStore
 
-router = APIRouter(prefix="/documents", tags=["documents"])
+router = APIRouter(prefix="/api/documents", tags=["documents"])
 
 
 @router.get("/", response_model=DocumentListResponse)
