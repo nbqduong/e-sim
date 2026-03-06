@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, status
 
 from app.core.config import settings
 from app.services.google_drive import GoogleDriveService
@@ -40,6 +40,18 @@ def get_google_oauth_service(
     session_manager: SessionManager = Depends(get_session_manager),
     state_cache: StateCache = Depends(get_state_cache),
 ) -> GoogleOAuthService:
+    # If this function is called directly (outside FastAPI DI), the
+    # default parameters will be `Depends` placeholder objects. Detect
+    # that and construct the actual dependencies so callers can invoke
+    # this helper directly in scripts/tests without relying on the
+    # framework to resolve nested dependencies.
+    if not hasattr(token_store, "save"):
+        token_store = get_token_store()
+    if not hasattr(session_manager, "issue"):
+        session_manager = get_session_manager()
+    if not hasattr(state_cache, "issue"):
+        state_cache = get_state_cache()
+
     return GoogleOAuthService(
         settings=settings,
         token_store=token_store,
@@ -55,10 +67,17 @@ def get_google_drive_service(
 
 
 def get_current_user(
-    session_token: str = Header(..., alias="X-Session-Token"),
+    x_session_token: str | None = Header(None, alias="X-Session-Token"),
+    session_token: str | None = Cookie(None),
     session_manager: SessionManager = Depends(get_session_manager),
 ) -> SessionData:
+    token = x_session_token or session_token
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing session token",
+        )
     try:
-        return session_manager.verify(session_token)
+        return session_manager.verify(token)
     except InvalidSessionError as exc:  # pragma: no cover - defensive guard
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc

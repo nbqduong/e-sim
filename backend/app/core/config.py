@@ -23,9 +23,10 @@ class Settings(BaseSettings):
         default="http://localhost:8000/auth/google/callback", alias="GOOGLE_REDIRECT_URI"
     )
     google_drive_parent_id: str | None = Field(default=None, alias="GOOGLE_DRIVE_PARENT_ID")
+    frontend_url: str = Field(default="http://localhost:8000", alias="FRONTEND_URL")
 
     cors_allow_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:5173", "http://localhost:3000"],
+        default_factory=lambda: ["http://localhost:5173", "http://localhost:8000"],
         alias="CORS_ALLOW_ORIGINS",
     )
 
