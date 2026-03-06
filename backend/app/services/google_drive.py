@@ -137,6 +137,25 @@ class GoogleDriveService:
         except HttpError as exc:
             raise DriveExportError("Failed to download document content from Google Drive") from exc
 
+    def delete_document(self, *, user_id: str, drive_file_id: str) -> None:
+        """Trash a file on Google Drive."""
+        token = self._token_store.get(user_id)
+        if token is None:
+            raise DriveAuthorizationError("No Google credentials found for the current user")
+
+        credentials = self._build_credentials(token)
+        if credentials.expired and credentials.refresh_token:
+            credentials.refresh(Request())
+            refreshed = token.update_from_credentials(credentials)
+            self._token_store.save(refreshed)
+
+        service = build("drive", "v3", credentials=credentials, cache_discovery=False)
+
+        try:
+            service.files().delete(fileId=drive_file_id).execute()
+        except HttpError as exc:
+            raise DriveExportError("Failed to delete document from Google Drive") from exc
+
     def _get_or_create_folder(self, service: Any, folder_name: str, parent_id: str | None = None) -> str:
         query = f"name = '{folder_name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
         if parent_id:

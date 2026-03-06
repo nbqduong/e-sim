@@ -20,6 +20,26 @@ export default function DocumentsPage() {
     const [documents, setDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [deleting, setDeleting] = useState<string | null>(null);
+
+    const handleDelete = async (docId: string, docTitle: string) => {
+        if (!confirm(`Delete "${docTitle}"? This will permanently remove it from Google Drive.`)) return;
+        setDeleting(docId);
+        try {
+            const res = await fetch(`http://localhost:8000/api/documents/${docId}`, {
+                method: 'DELETE',
+                credentials: 'include',
+            });
+            if (!res.ok && res.status !== 204) {
+                throw new Error('Failed to delete document');
+            }
+            setDocuments(prev => prev.filter(d => d.id !== docId));
+        } catch (err: any) {
+            alert(`Delete failed: ${err.message}`);
+        } finally {
+            setDeleting(null);
+        }
+    };
 
     useEffect(() => {
         const fetchDocuments = async () => {
@@ -287,8 +307,40 @@ export default function DocumentsPage() {
                                     fontSize: '0.9rem',
                                     fontWeight: '500'
                                 }}>
-                                    Edit Document {/* Right Arrow */}
-                                    <span style={{ marginLeft: 'auto', fontSize: '1.2rem' }}>&rarr;</span>
+                                    Edit Document
+                                    <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDelete(doc.id, doc.title || 'Untitled');
+                                            }}
+                                            disabled={deleting === doc.id}
+                                            style={{
+                                                background: 'rgba(255, 59, 48, 0.1)',
+                                                border: '1px solid rgba(255, 59, 48, 0.2)',
+                                                borderRadius: '6px',
+                                                padding: '0.3rem 0.6rem',
+                                                color: 'rgba(255, 59, 48, 0.8)',
+                                                fontSize: '0.8rem',
+                                                cursor: deleting === doc.id ? 'not-allowed' : 'pointer',
+                                                transition: 'all 0.2s',
+                                                opacity: deleting === doc.id ? 0.5 : 1,
+                                            }}
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.background = 'rgba(255, 59, 48, 0.25)';
+                                                e.currentTarget.style.borderColor = 'rgba(255, 59, 48, 0.5)';
+                                                e.currentTarget.style.color = '#ff3b30';
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.background = 'rgba(255, 59, 48, 0.1)';
+                                                e.currentTarget.style.borderColor = 'rgba(255, 59, 48, 0.2)';
+                                                e.currentTarget.style.color = 'rgba(255, 59, 48, 0.8)';
+                                            }}
+                                        >
+                                            {deleting === doc.id ? '...' : '🗑'}
+                                        </button>
+                                        <span style={{ fontSize: '1.2rem', color: '#00ff9d' }}>&rarr;</span>
+                                    </span>
                                 </div>
                             </div>
                         ))}
