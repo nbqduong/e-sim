@@ -60,6 +60,40 @@ export default function DocumentCreatePage() {
     }, [])
 
     /* ---------------------------------------------------------------- */
+    /*  Generate unique title on mount                                   */
+    /* ---------------------------------------------------------------- */
+    useEffect(() => {
+        async function generateTitle() {
+            try {
+                const res = await fetch(`${API_BASE}/api/documents/`, {
+                    credentials: 'include',
+                })
+                if (!res.ok) return // keep default if can't fetch
+
+                const data = await res.json()
+                const existingTitles = new Set(
+                    (data.documents || []).map((d: any) => d.title as string)
+                )
+
+                if (!existingTitles.has('Untitled')) {
+                    setTitle('Untitled')
+                    return
+                }
+
+                let suffix = 1
+                while (existingTitles.has(`Untitled_${suffix}`)) {
+                    suffix++
+                }
+                setTitle(`Untitled_${suffix}`)
+            } catch {
+                // keep default 'Untitled'
+            }
+        }
+
+        generateTitle()
+    }, [])
+
+    /* ---------------------------------------------------------------- */
     /*  Load WASM module                                                 */
     /* ---------------------------------------------------------------- */
     useEffect(() => {

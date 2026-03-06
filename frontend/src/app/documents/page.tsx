@@ -88,7 +88,7 @@ export default function DocumentsPage() {
                         WebkitBackgroundClip: 'text',
                         WebkitTextFillColor: 'transparent',
                     }}>
-                        Your Documents
+                        All projects
                     </h1>
                     <p style={{
                         fontSize: '1.2rem',
@@ -96,7 +96,7 @@ export default function DocumentsPage() {
                         maxWidth: '500px',
                         margin: '0 auto',
                     }}>
-                        View and manage all your synchronized files stored in the _ESimulate secure drive.
+                        View and manage all your project sync with google drive.
                     </p>
                 </header>
 
