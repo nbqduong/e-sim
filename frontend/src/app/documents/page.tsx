@@ -100,6 +100,38 @@ export default function DocumentsPage() {
                     </p>
                 </header>
 
+                {/* Create New Document button */}
+                <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '2rem' }}>
+                    <button
+                        onClick={() => window.location.href = '/documents/create'}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.75rem 1.75rem',
+                            background: '#00ff9d',
+                            color: '#000000',
+                            border: 'none',
+                            borderRadius: '10px',
+                            fontWeight: '600',
+                            fontSize: '0.95rem',
+                            cursor: 'pointer',
+                            transition: 'all 0.25s ease',
+                            boxShadow: '0 2px 12px rgba(0, 255, 157, 0.15)',
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = '0 6px 24px rgba(0, 255, 157, 0.3)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 2px 12px rgba(0, 255, 157, 0.15)';
+                        }}
+                    >
+                        <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>+</span> New Document
+                    </button>
+                </div>
+
                 {loading ? (
                     <div style={{ textAlign: 'center', margin: '4rem 0' }}>
                         <div style={{
@@ -188,7 +220,7 @@ export default function DocumentsPage() {
                                     e.currentTarget.style.border = '1px solid rgba(255, 255, 255, 0.05)';
                                 }}
                                 onClick={() => {
-                                    if (doc.drive_file_url) window.open(doc.drive_file_url, '_blank');
+                                    window.location.href = `/documents/modify?id=${doc.id}&title=${encodeURIComponent(doc.title || 'Untitled')}`;
                                 }}
                             >
                                 {/* Glow hover effect element */}
@@ -255,7 +287,7 @@ export default function DocumentsPage() {
                                     fontSize: '0.9rem',
                                     fontWeight: '500'
                                 }}>
-                                    Open in Drive {/* Right Arrow */}
+                                    Edit Document {/* Right Arrow */}
                                     <span style={{ marginLeft: 'auto', fontSize: '1.2rem' }}>&rarr;</span>
                                 </div>
                             </div>

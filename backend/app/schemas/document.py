@@ -11,7 +11,7 @@ class DocumentBase(BaseModel):
 
 
 class DocumentCreateRequest(DocumentBase):
-    pass
+    drive_file_id: str | None = None
 
 
 class DocumentUpdateRequest(BaseModel):
