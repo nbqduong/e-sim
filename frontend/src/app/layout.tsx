@@ -5,8 +5,8 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'e-Sim Connect | The Future of Mobile Data',
-  description: 'Global eSIM connectivity in seconds. Experience fast, reliable, and invisible internet access over 150+ countries.',
+  title: 'E-Sim | Electronic Simulator',
+  description: 'Build, test, and simulate electronic circuits in your browser. WASM-powered editor with Google Drive sync.',
 }
 
 export default function RootLayout({

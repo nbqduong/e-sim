@@ -1,5 +1,5 @@
 .env
-backend/data/tokens.json
+backend/data/
 
 # Python
 __pycache__/
@@ -16,3 +16,7 @@ frontend/out/
 frontend/build/
 frontend/next-env.d.ts
 frontend/.DS_Store
+frontend/public/wasm/
+
+#plan
+*.plan.md

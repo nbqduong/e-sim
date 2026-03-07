@@ -29,14 +29,18 @@ async def login_with_google(
 
 @router.get("/callback")
 async def google_callback(
-    code: str,
     state: str,
     oauth_service: GoogleOAuthService = Depends(get_google_oauth_service),
+    code: str | None = None,
+    error: str | None = None,
 ) -> RedirectResponse:
+    if error or not code:
+        return RedirectResponse("/not-authorized")
+
     try:
         auth_result = oauth_service.exchange_code(code=code, state=state)
 
-        response = RedirectResponse("/dashboard")
+        response = RedirectResponse("/documents")
         response.set_cookie(
             key="session_token",
             value=auth_result.session_token,
@@ -46,9 +50,7 @@ async def google_callback(
             secure=False,  # Set to True in production with HTTPS
         )
         return response
-    except OAuthStateError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except (OAuthStateError, OAuthExchangeError):
+        return RedirectResponse("/not-authorized")
     except OAuthConfigurationError as exc:  # pragma: no cover - configuration guard
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
-    except OAuthExchangeError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc

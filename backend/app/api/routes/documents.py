@@ -18,16 +18,72 @@ from app.services.google_drive import DriveAuthorizationError, DriveExportError,
 from app.services.session_manager import SessionData
 from app.storage.document_store import DocumentStore
 
-router = APIRouter(prefix="/documents", tags=["documents"])
+router = APIRouter(prefix="/api/documents", tags=["documents"])
 
 
 @router.get("/", response_model=DocumentListResponse)
 async def list_documents(
     current_user: SessionData = Depends(get_current_user),
-    store: DocumentStore = Depends(get_document_store),
+    drive_service: GoogleDriveService = Depends(get_google_drive_service),
 ) -> DocumentListResponse:
-    documents = store.list_for_user(user_id=current_user.user_id)
+    try:
+        drive_files = drive_service.list_documents(user_id=current_user.user_id)
+    except DriveAuthorizationError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+    except DriveExportError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+    documents = []
+    for f in drive_files:
+        documents.append(
+            Document(
+                id=f["id"],
+                user_id=current_user.user_id,
+                title=f["name"].replace(".txt", ""),
+                content="",  # Content is not fetched during listing
+                updated_at=f.get("modifiedTime", ""),
+                drive_file_id=f["id"],
+                drive_file_url=f.get("webViewLink"),
+            )
+        )
+
     return DocumentListResponse(documents=documents)
+
+
+@router.get("/{drive_file_id}/content")
+async def get_document_content(
+    drive_file_id: str,
+    current_user: SessionData = Depends(get_current_user),
+    drive_service: GoogleDriveService = Depends(get_google_drive_service),
+) -> dict:
+    """Fetch the text content of a document from Google Drive."""
+    try:
+        content = drive_service.get_document_content(
+            user_id=current_user.user_id, drive_file_id=drive_file_id
+        )
+    except DriveAuthorizationError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+    except DriveExportError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+    return {"drive_file_id": drive_file_id, "content": content}
+
+
+@router.delete("/{drive_file_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_document(
+    drive_file_id: str,
+    current_user: SessionData = Depends(get_current_user),
+    drive_service: GoogleDriveService = Depends(get_google_drive_service),
+) -> None:
+    """Delete a document from Google Drive."""
+    try:
+        drive_service.delete_document(
+            user_id=current_user.user_id, drive_file_id=drive_file_id
+        )
+    except DriveAuthorizationError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+    except DriveExportError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
 
 @router.post("/", response_model=Document, status_code=status.HTTP_201_CREATED)

@@ -1,11 +1,16 @@
 :root {
-  --background: #000000;
-  --foreground: #ffffff;
-  --primary: #00ff9d;
-  --primary-glow: rgba(0, 255, 157, 0.4);
-  --secondary: #1a1a1a;
-  --glass: rgba(255, 255, 255, 0.05);
-  --border: rgba(255, 255, 255, 0.1);
+  --background: #000814;
+  --foreground: #e8f4ff;
+  --primary: #00aaff;
+  --primary-glow: rgba(0, 170, 255, 0.35);
+  --secondary: #0a1628;
+  --glass: rgba(0, 170, 255, 0.06);
+  --border: rgba(0, 170, 255, 0.18);
+  --surface-2: #0d1f3c;
+  --text-muted: rgba(200, 230, 255, 0.5);
+  --success: #00d4ff;
+  --error: #ff4060;
+  --grid-line: rgba(0, 120, 255, 0.04);
 }
 
 * {
@@ -40,3 +45,12 @@ button {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+.oscilloscope-grid {
+  background-color: var(--background);
+  background-image: 
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+

@@ -56,18 +56,30 @@ if os.path.isdir(frontend_dist):
     
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
+        # Normalize the path by removing trailing slash for consistent matching
+        full_path = full_path.rstrip("/")
+        
         file_path = os.path.join(frontend_dist, full_path)
-        if os.path.isfile(file_path):
+        
+        # 1. Check if the exact file exists (like an image or .js file)
+        if full_path and os.path.isfile(file_path):
             return FileResponse(file_path)
         
-        # Check if full_path + ".html" exists
-        html_path = f"{file_path}.html"
-        if os.path.isfile(html_path):
-            return FileResponse(html_path)
+        # 2. Check if the path corresponds directly to a Next.js HTML output
+        if full_path:
+            html_path = f"{file_path}.html"
+            if os.path.isfile(html_path):
+                return FileResponse(html_path)
+                
+        # 3. Check if the path targets a directory containing an index.html
+        if os.path.isdir(file_path):
+            index_path = os.path.join(file_path, "index.html")
+            if os.path.isfile(index_path):
+                return FileResponse(index_path)
         
-        # If accessing the root or path doesn't exist, serve index.html (SPA fallback)
-        index_file = os.path.join(frontend_dist, "index.html")
-        if os.path.isfile(index_file):
-            return FileResponse(index_file)
+        # 4. Fallback to the SPA root index.html if no route matched
+        root_index = os.path.join(frontend_dist, "index.html")
+        if os.path.isfile(root_index):
+            return FileResponse(root_index)
         
         return {"error": "Frontend build not found"}
