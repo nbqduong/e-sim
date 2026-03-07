@@ -109,7 +109,7 @@ async def update_document(
 
 
 @router.post("/{document_id}/drive", response_model=DriveSaveResponse)
-async def save_document_to_drive(
+def save_document_to_drive(
     document_id: str,
     current_user: SessionData = Depends(get_current_user),
     store: DocumentStore = Depends(get_document_store),
