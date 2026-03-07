@@ -7,12 +7,12 @@ export default function Home() {
 
       <nav className={styles.nav}>
         <div className={styles.logo}>
-          e-Sim<span className={styles.logoDot}>.</span>
+          E-Sim<span className={styles.logoDot}>.</span>
         </div>
         <div className={styles.navLinks}>
           <a href="#features" className={styles.navLink}>Features</a>
-          <a href="#destinations" className={styles.navLink}>Destinations</a>
-          <a href="#pricing" className={styles.navLink}>Pricing</a>
+          <a href="/documents" className={styles.navLink}>Projects</a>
+          <a href="#about" className={styles.navLink}>About</a>
           <a href="http://localhost:8000/auth/google/login" className={styles.navLink}>Log in</a>
           <a href="http://localhost:8000/auth/google/login" className={styles.primaryBtn} style={{ display: 'inline-block', lineHeight: 'normal' }}>
             Get Started
@@ -21,19 +21,19 @@ export default function Home() {
       </nav>
 
       <section className={styles.hero}>
-        <div className={styles.badge}>Next-Gen Connectivity</div>
+        <div className={styles.badge}>Electronic Simulator</div>
         <h1 className={styles.title}>
-          The world&apos;s data, <span className="gradient-text">in your pocket.</span>
+          Design, <span className="gradient-text">simulate instantly.</span>
         </h1>
         <p className={styles.subtitle}>
-          Instantly connect to local networks in over 150+ countries. No physical SIM needed, roaming charges are a thing of the past.
+          Build, test, and simulate electronic systems right in your browser. Powered by a WASM-based engine for real-time feedback.
         </p>
         <div className={styles.ctaGroup}>
           <a href="http://localhost:8000/auth/google/login" className={`${styles.primaryBtn} ${styles.largeBtn}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
-            Connect Now
+            Get Started
           </a>
-          <a href="#plans" className={styles.secondaryBtn}>
-            View Plans
+          <a href="#features" className={styles.secondaryBtn}>
+            Learn More
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
@@ -43,19 +43,14 @@ export default function Home() {
 
       <section id="features" className={styles.features}>
         <div className={styles.featureCard}>
-          <div className={styles.featureIcon}>🌍</div>
-          <h3 className={styles.featureTitle}>Global Coverage</h3>
-          <p className={styles.featureDesc}>Get high-speed 5G/4G connectivity automatically switching to the best local networks across the globe.</p>
-        </div>
-        <div className={styles.featureCard}>
           <div className={styles.featureIcon}>⚡</div>
-          <h3 className={styles.featureTitle}>Instant Activation</h3>
-          <p className={styles.featureDesc}>Scan a QR code to download your eSIM directly to your device and get online in seconds.</p>
+          <h3 className={styles.featureTitle}>WASM-Powered Editor</h3>
+          <p className={styles.featureDesc}>Write and edit system descriptions with our C++-compiled WebAssembly text editor for blazing-fast performance.</p>
         </div>
         <div className={styles.featureCard}>
-          <div className={styles.featureIcon}>🛡️</div>
-          <h3 className={styles.featureTitle}>No Hidden Fees</h3>
-          <p className={styles.featureDesc}>Transparent pricing with zero roaming charges. Pay for what you need exactly when you need it.</p>
+          <div className={styles.featureIcon}>☁️</div>
+          <h3 className={styles.featureTitle}>Google Drive Sync</h3>
+          <p className={styles.featureDesc}>Save your projects directly to Google Drive. Access and edit them from anywhere, on any device.</p>
         </div>
       </section>
     </main>

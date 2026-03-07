@@ -19,6 +19,7 @@ class DocumentStore(JsonStore):
             title=payload.title,
             content=payload.content,
             updated_at=datetime.now(tz=timezone.utc).isoformat(),
+            drive_file_id=payload.drive_file_id,
         )
         data = self._read()
         data[document.id] = document.model_dump(mode="json")
