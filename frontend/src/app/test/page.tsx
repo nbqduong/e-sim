@@ -1,91 +1,94 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 
 export default function TestPage() {
+    const canvasRef = useRef<HTMLCanvasElement>(null)
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && canvasRef.current) {
+            // Setup Emscripten Module parameters expected by cpp-web.js
+            ; (window as any).Module = {
+                canvas: canvasRef.current,
+                locateFile: function (path: string) {
+                    if (path.endsWith('.wasm')) return '/' + path;
+                    return path;
+                },
+                print: (...args: any[]) => console.log('WASM:', ...args),
+                printErr: (...args: any[]) => console.error('WASM ERROR:', ...args),
+                onRuntimeInitialized: () => {
+                    console.log('WebAssembly runtime initialized successfully.')
+                }
+            }
+
+            // Dynamically load the cpp-web.js script
+            const script = document.createElement('script')
+            script.src = '/cpp-web.js'
+            script.async = true
+            document.body.appendChild(script)
+
+            return () => {
+                // Cleanup if the component unmounts
+                if (script.parentNode) {
+                    script.parentNode.removeChild(script)
+                }
+                delete (window as any).Module
+            }
+        }
+    }, [])
+
     return (
         <div style={{
             minHeight: '100vh',
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'radial-gradient(circle at center, #1a1a1a 0%, #000000 100%)',
+            background: '#000000',
             color: '#ffffff',
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-            padding: '2rem',
-            textAlign: 'center'
+            fontFamily: 'system-ui, -apple-system, sans-serif'
         }}>
+            {/* Custom Header Navigation */}
             <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: '300px',
-                height: '300px',
-                background: 'rgba(0, 255, 157, 0.1)',
-                filter: 'blur(100px)',
-                borderRadius: '50%',
-                zIndex: 0
-            }}></div>
-
-            <div style={{ zIndex: 1, animation: 'fadeIn 1s ease-out' }}>
-                <h1 className="gradient-text" style={{
-                    fontSize: '5rem',
-                    fontWeight: '800',
-                    letterSpacing: '-0.02em',
-                    marginBottom: '1rem',
-                    background: 'linear-gradient(135deg, #ffffff 0%, #00ff9d 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    lineHeight: '1.2'
-                }}>
-                    Test Successful
-                </h1>
-
-                <p style={{
-                    fontSize: '1.25rem',
-                    color: 'rgba(255, 255, 255, 0.6)',
-                    maxWidth: '600px',
-                    margin: '0 auto 2.5rem',
-                    lineHeight: '1.6'
-                }}>
-                    This is a beautiful test page served by your backend logic.
-                    Everything is working exactly as expected.
-                </p>
-
-                <div style={{
-                    display: 'inline-flex',
-                    padding: '1px',
-                    background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(0, 255, 157, 0.2))',
-                    borderRadius: '12px'
-                }}>
-                    <button
-                        onClick={() => window.location.href = '/'}
-                        style={{
-                            padding: '0.75rem 2rem',
-                            background: '#ffffff',
-                            color: '#000000',
-                            borderRadius: '11px',
-                            fontSize: '1rem',
-                            fontWeight: '600',
-                            transition: 'transform 0.2s ease',
-                            cursor: 'pointer'
-                        }}
-                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                    >
-                        Back to Dashboard
-                    </button>
-                </div>
+                padding: '1rem 2rem',
+                borderBottom: '1px solid rgba(255,255,255,0.1)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                zIndex: 10
+            }}>
+                <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600 }}>C++ Simulation Canvas</h1>
+                <button
+                    onClick={() => window.location.href = '/'}
+                    style={{
+                        padding: '0.5rem 1.5rem',
+                        background: 'linear-gradient(135deg, #00ff9d 0%, #00b8ff 100%)',
+                        color: '#000000',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Dashboard
+                </button>
             </div>
 
-            <style jsx global>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+            {/* Canvas Container */}
+            <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
+                <canvas
+                    ref={canvasRef}
+                    id="canvas"
+                    // Need to capture pointer events correctly for Emscripten SDL apps
+                    onContextMenu={(e) => e.preventDefault()}
+                    tabIndex={-1}
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                        border: 'none',
+                        display: 'block',
+                        outline: 'none'
+                    }}
+                />
+            </div>
         </div>
     )
 }
