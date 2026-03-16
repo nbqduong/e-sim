@@ -3,8 +3,8 @@ services:
     build:
       context: ./cpp-web
       args:
-        UID: ${UID}
-        GID: ${GID}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
     image: e-sim-cpp-web
     working_dir: /home/worker/source/cpp-web
     environment:
@@ -16,8 +16,8 @@ services:
     build:
       context: ./testapp
       args:
-        UID: ${UID}
-        GID: ${GID}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
     image: e-sim-testapp
     working_dir: /home/worker/source/testapp
     environment:
@@ -35,11 +35,17 @@ services:
     volumes:
       - .:/home/node/source
     depends_on:
-      - testapp
-      - cpp-web
+      testapp:
+        condition: service_completed_successfully
+      cpp-web:
+        condition: service_completed_successfully
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
     image: e-sim-backend
     working_dir: /home/worker/source/
     environment:
@@ -48,8 +54,10 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - frontend
-      - postgres
+      frontend:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_started
 
   postgres:
     image: postgres:16
