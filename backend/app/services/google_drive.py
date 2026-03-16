@@ -24,7 +24,7 @@ class DriveExportError(RuntimeError):
 
 
 DEFAULT_DRIVE_SCOPES = [
-    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/drive.file",
 ]
 
 
