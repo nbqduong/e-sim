@@ -18,12 +18,19 @@ COPY requirements.txt .
 RUN pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-# Copy application source
-COPY app ./app
 
-RUN mkdir -p /app/data
+ARG UID=1000
+ARG GID=1000
 
-ENV PYTHONPATH=/app
+RUN groupadd -f -g ${GID} worker && \
+    useradd -m -u ${UID} -g ${GID} -o worker
+
+USER worker
+ENV APP_DIR=/home/worker/source
+WORKDIR ${APP_DIR}
+
+COPY --chown=worker:worker . ${APP_DIR}
+
 
 EXPOSE 8000
 
