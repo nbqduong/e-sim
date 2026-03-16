@@ -18,5 +18,7 @@ frontend/next-env.d.ts
 frontend/.DS_Store
 frontend/public/wasm/
 
+frontend/public/cpp-web*
+
 #plan
 *.plan.md
