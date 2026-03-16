@@ -20,7 +20,7 @@ docker compose up frontend --build && docker compose up backend --build
 
 This will:
 1. Initialize submodules (including `cpp-web`).
-2. Build and run the `frontend` service (including any dependencies like `testapp` and `cpp-web`).
+2. Build the `frontend` service (including any dependencies like `testapp` and `cpp-web`).
 3. Build and run the `backend` service (including `postgres` and `redis`).
 
 The backend will be available at `http://localhost:8000`.
