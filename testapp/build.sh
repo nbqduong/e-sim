@@ -7,9 +7,12 @@
 
 set -e
 
+#should called at /home/worker/source/testapp
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-OUT_DIR="$ROOT_DIR/frontend/public/wasm"
+
+
+echo "Out directory: $OUT_DIR"
 
 mkdir -p "$OUT_DIR"
 

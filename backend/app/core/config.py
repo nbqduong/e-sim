@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     )
     google_drive_parent_id: str | None = Field(default=None, alias="GOOGLE_DRIVE_PARENT_ID")
     frontend_url: str = Field(default="http://localhost:8000", alias="FRONTEND_URL")
+    frontend_dist_dir: str = Field(default="", alias="FRONTEND_DIST_DIR")
 
     cors_allow_origins: list[str] = Field(
         default_factory=lambda: ["http://localhost:5173", "http://localhost:8000"],
