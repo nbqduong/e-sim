@@ -1,0 +1,81 @@
+services:
+  cpp-web:
+    build:
+      context: ./cpp-web
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    image: e-sim-cpp-web
+    working_dir: /home/worker/source/cpp-web
+    environment:
+      - OUT_DIR=/home/worker/source/frontend__input/
+    volumes:
+      - .:/home/worker/source
+
+  testapp:
+    build:
+      context: ./testapp
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    image: e-sim-testapp
+    working_dir: /home/worker/source/testapp
+    environment:
+      - OUT_DIR=/home/worker/source/frontend__input/wasm/
+    volumes:
+      - .:/home/worker/source
+
+  frontend:
+    build: ./frontend
+    image: e-sim-frontend
+    working_dir: /home/node/source/frontend
+    environment:
+      - IN_DIR=/home/node/source/frontend__input/
+      - OUT_DIR=/home/node/source/backend/frontend__output/
+    volumes:
+      - .:/home/node/source
+    depends_on:
+      testapp:
+        condition: service_completed_successfully
+      cpp-web:
+        condition: service_completed_successfully
+
+  backend:
+    build:
+      context: ./backend
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    env_file:
+      - .env
+    image: e-sim-backend
+    working_dir: /home/worker/source/
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/esim
+      - FRONTEND_DIST_DIR=/home/worker/source/frontend__output/
+    ports:
+      - "8000:8000"
+    depends_on:
+      frontend:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_started
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: esim
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata:

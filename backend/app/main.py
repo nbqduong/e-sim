@@ -43,13 +43,18 @@ async def healthcheck() -> dict[str, str]:
     return {"status": "ok", "timestamp": datetime.now(tz=UTC).isoformat()}
 
 # Attempt to locate the frontend 'out' directory
-frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..","frontend", "out"))
+_settings = settings
+if _settings.frontend_dist_dir:
+    frontend_dist = _settings.frontend_dist_dir
+else:
+    frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend_output"))
+    if not os.path.isdir(frontend_dist):
+        frontend_dist = "/app/frontend/out"
 
-# Fallback for container environment path if specified absolute path is needed
-if not os.path.isdir(frontend_dist):
-    frontend_dist = "/app/frontend/out"
-
+print(f"[DEBUG] frontend_dist = {frontend_dist}")
+print(f"[DEBUG] frontend_dist exists = {os.path.isdir(frontend_dist)}")
 if os.path.isdir(frontend_dist):
+    print(f"[DEBUG] frontend_dist contents: {os.listdir(frontend_dist)}")
     next_dist = os.path.join(frontend_dist, "_next")
     if os.path.isdir(next_dist):
         app.mount("/_next", StaticFiles(directory=next_dist), name="next-static")
