@@ -36,15 +36,26 @@ const SPECIAL_CHARS = [
     { label: '±', char: '±', title: 'Plus-Minus Sign (U+00B1)' },
 ]
 
+interface Project {
+    id: string
+    title: string
+    description: string
+}
+
 export default function DocumentCreatePage() {
     const [title, setTitle] = useState('Untitled')
     const [saving, setSaving] = useState(false)
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+    const [saveMessage, setSaveMessage] = useState('')
     const [documentId, setDocumentId] = useState<string | null>(null)
     const [editorContent, setEditorContent] = useState('')
     const [cursorPos, setCursorPos] = useState(0)
     const [wasmReady, setWasmReady] = useState(false)
     const [wasmError, setWasmError] = useState<string | null>(null)
+
+    const [projects, setProjects] = useState<Project[]>([])
+    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+    const [projectsLoading, setProjectsLoading] = useState(true)
 
     const editorRef = useRef<WasmEditor | null>(null)
     const editorAreaRef = useRef<HTMLDivElement | null>(null)
@@ -59,37 +70,28 @@ export default function DocumentCreatePage() {
     }, [])
 
     /* ---------------------------------------------------------------- */
-    /*  Generate unique title on mount                                   */
+    /*  Fetch projects on mount                                          */
     /* ---------------------------------------------------------------- */
     useEffect(() => {
-        async function generateTitle() {
+        async function fetchProjects() {
             try {
-                const res = await fetch(`${API_BASE}/api/documents/`, {
+                const res = await fetch(`${API_BASE}/api/projects/`, {
                     credentials: 'include',
                 })
                 if (!res.ok) return
-
                 const data = await res.json()
-                const existingTitles = new Set(
-                    (data.documents || []).map((d: any) => d.title as string)
-                )
-
-                if (!existingTitles.has('Untitled')) {
-                    setTitle('Untitled')
-                    return
+                const list: Project[] = data.projects || []
+                setProjects(list)
+                if (list.length > 0) {
+                    setSelectedProjectId(list[0].id)
                 }
-
-                let suffix = 1
-                while (existingTitles.has(`Untitled_${suffix}`)) {
-                    suffix++
-                }
-                setTitle(`Untitled_${suffix}`)
             } catch {
-                // keep default 'Untitled'
+                // ignore
+            } finally {
+                setProjectsLoading(false)
             }
         }
-
-        generateTitle()
+        fetchProjects()
     }, [])
 
     /* ---------------------------------------------------------------- */
@@ -241,14 +243,21 @@ export default function DocumentCreatePage() {
     }, [syncFromWasm])
 
     /* ---------------------------------------------------------------- */
-    /*  Save handler                                                     */
+    /*  Save to database handler                                         */
     /* ---------------------------------------------------------------- */
     const handleSave = useCallback(async () => {
         const ed = editorRef.current
         if (!ed || saving) return
+        if (!selectedProjectId) {
+            setSaveStatus('error')
+            setSaveMessage('Select a project first')
+            setTimeout(() => setSaveStatus('idle'), 3000)
+            return
+        }
 
         setSaving(true)
         setSaveStatus('saving')
+        setSaveMessage('Saving...')
 
         try {
             const content = ed.getContent()
@@ -259,7 +268,7 @@ export default function DocumentCreatePage() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ title, content }),
+                    body: JSON.stringify({ title, content, project_id: selectedProjectId }),
                 })
                 if (!createRes.ok) throw new Error(`Create failed: ${await createRes.text()}`)
                 const doc = await createRes.json()
@@ -275,6 +284,35 @@ export default function DocumentCreatePage() {
                 if (!updateRes.ok) throw new Error(`Update failed: ${await updateRes.text()}`)
             }
 
+            setSaveStatus('saved')
+            setSaveMessage('Saved')
+            setTimeout(() => setSaveStatus('idle'), 3000)
+        } catch (err: any) {
+            console.error('Save error:', err)
+            setSaveStatus('error')
+            setSaveMessage(err.message || 'Save failed')
+            setTimeout(() => setSaveStatus('idle'), 4000)
+        } finally {
+            setSaving(false)
+        }
+    }, [saving, documentId, title, selectedProjectId])
+
+    /* ---------------------------------------------------------------- */
+    /*  Sync to Drive handler                                            */
+    /* ---------------------------------------------------------------- */
+    const handleSyncDrive = useCallback(async () => {
+        if (!documentId) {
+            // Save first, then sync
+            await handleSave()
+        }
+        const docId = documentId
+        if (!docId) return
+
+        setSaving(true)
+        setSaveStatus('saving')
+        setSaveMessage('Syncing to Drive...')
+
+        try {
             const driveRes = await fetch(`${API_BASE}/api/documents/${docId}/drive`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -283,15 +321,17 @@ export default function DocumentCreatePage() {
             if (!driveRes.ok) throw new Error(`Drive sync failed: ${await driveRes.text()}`)
 
             setSaveStatus('saved')
+            setSaveMessage('Synced to Drive')
             setTimeout(() => setSaveStatus('idle'), 3000)
         } catch (err: any) {
-            console.error('Save error:', err)
+            console.error('Drive sync error:', err)
             setSaveStatus('error')
+            setSaveMessage(err.message || 'Drive sync failed')
             setTimeout(() => setSaveStatus('idle'), 4000)
         } finally {
             setSaving(false)
         }
-    }, [saving, documentId, title])
+    }, [documentId, handleSave])
 
     /* ---------------------------------------------------------------- */
     /*  Render cursor inside text                                        */
@@ -376,23 +416,64 @@ export default function DocumentCreatePage() {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    {/* Project selector */}
+                    <select
+                        value={selectedProjectId || ''}
+                        onChange={e => setSelectedProjectId(e.target.value || null)}
+                        disabled={!!documentId}
+                        style={{
+                            background: 'var(--glass)', border: '1px solid var(--border)',
+                            borderRadius: '6px', padding: '0.35rem 0.5rem',
+                            color: 'var(--foreground)', fontSize: '0.8rem', outline: 'none',
+                            cursor: documentId ? 'not-allowed' : 'pointer',
+                            opacity: documentId ? 0.6 : 1,
+                        }}
+                    >
+                        {projectsLoading ? (
+                            <option value="">Loading...</option>
+                        ) : projects.length === 0 ? (
+                            <option value="">No projects</option>
+                        ) : (
+                            projects.map(p => (
+                                <option key={p.id} value={p.id}>{p.title}</option>
+                            ))
+                        )}
+                    </select>
+
+                    {/* Status indicator */}
                     <div style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        {saveStatus === 'saving' && <><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffb300' }} /> <span style={{ color: 'var(--text-muted)' }}>Saving...</span></>}
-                        {saveStatus === 'saved' && <><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }} /> <span style={{ color: 'var(--success)' }}>Saved to Drive</span></>}
-                        {saveStatus === 'error' && <><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--error)' }} /> <span style={{ color: 'var(--error)' }}>Save failed</span></>}
+                        {saveStatus === 'saving' && <><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffb300' }} /> <span style={{ color: 'var(--text-muted)' }}>{saveMessage}</span></>}
+                        {saveStatus === 'saved' && <><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }} /> <span style={{ color: 'var(--success)' }}>{saveMessage}</span></>}
+                        {saveStatus === 'error' && <><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--error)' }} /> <span style={{ color: 'var(--error)' }}>{saveMessage}</span></>}
                     </div>
 
-                    <button onClick={handleSave} disabled={saving || !wasmReady}
+                    {/* Save to DB button */}
+                    <button onClick={handleSave} disabled={saving || !wasmReady || !selectedProjectId}
                         style={{
-                            padding: '8px 20px', background: saving ? 'rgba(0,170,255,0.3)' : 'linear-gradient(135deg, #0066cc 0%, #00aaff 100%)',
+                            padding: '8px 16px', background: saving || !selectedProjectId ? 'rgba(0,170,255,0.3)' : 'linear-gradient(135deg, #0066cc 0%, #00aaff 100%)',
                             color: '#ffffff', border: 'none', borderRadius: '8px',
                             fontWeight: 600, fontSize: '0.85rem',
-                            cursor: saving ? 'not-allowed' : 'pointer',
-                            transition: 'all 0.2s', opacity: wasmReady ? 1 : 0.6,
+                            cursor: saving || !selectedProjectId ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.2s', opacity: wasmReady && selectedProjectId ? 1 : 0.6,
                         }}
                         onMouseEnter={e => { if (!saving) { e.currentTarget.style.boxShadow = '0 0 20px rgba(0,170,255,0.4), 0 4px 12px rgba(0,100,200,0.3)'; e.currentTarget.style.transform = 'translateY(-1px)' } }}
                         onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'translateY(0)' }}
-                    >{saving ? 'Saving...' : 'Save to Drive'}</button>
+                    >{saving ? 'Saving...' : 'Save'}</button>
+
+                    {/* Sync to Drive button */}
+                    <button onClick={handleSyncDrive} disabled={saving || !wasmReady || !documentId}
+                        title={!documentId ? 'Save the document first' : 'Sync to Google Drive'}
+                        style={{
+                            padding: '8px 16px', background: saving || !documentId ? 'rgba(255,255,255,0.05)' : 'rgba(0,170,255,0.12)',
+                            color: !documentId ? 'var(--text-muted)' : 'var(--primary)',
+                            border: `1px solid ${!documentId ? 'var(--border)' : 'rgba(0,170,255,0.3)'}`,
+                            borderRadius: '8px', fontWeight: 600, fontSize: '0.85rem',
+                            cursor: saving || !documentId ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.2s', opacity: documentId ? 1 : 0.5,
+                        }}
+                        onMouseEnter={e => { if (!saving && documentId) { e.currentTarget.style.background = 'rgba(0,170,255,0.2)'; e.currentTarget.style.transform = 'translateY(-1px)' } }}
+                        onMouseLeave={e => { e.currentTarget.style.background = documentId ? 'rgba(0,170,255,0.12)' : 'rgba(255,255,255,0.05)'; e.currentTarget.style.transform = 'translateY(0)' }}
+                    >☁ Drive</button>
                 </div>
             </header>
 
