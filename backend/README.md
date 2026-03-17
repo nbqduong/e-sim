@@ -9,8 +9,8 @@ FastAPI reference implementation that powers the "edit text and sync to Google D
 ## Features
 
 - **Google login** - issues short-lived OAuth states, exchanges auth codes, and creates signed session tokens your frontend can store.
-- **Document management** - JSON-backed store keeps per-user drafts with title, body, timestamps, and Drive metadata.
-- **Drive export** - uploads or updates plain-text files inside the Drive folder you configure, refreshing OAuth credentials when needed.
+- **Document management** - SQLAlchemy models + Alembic migrations store per-user projects, documents, and export tasks.
+- **Drive export** - enqueues a background job (Celery + Redis) to upload or update plain-text files inside the Drive folder you configure, refreshing OAuth credentials when needed.
 - **Portable config** - env-file driven settings (see [.env.example](.env.example)) plus container-ready [Dockerfile](Dockerfile).
 
 ## Project structure
@@ -19,7 +19,7 @@ FastAPI reference implementation that powers the "edit text and sync to Google D
   - [app/main.py](app/main.py) wires routers and middleware.
   - [app/api/routes/auth.py](app/api/routes/auth.py) and [app/api/routes/documents.py](app/api/routes/documents.py) expose the REST surface.
   - [app/services/](app/services) covers Google OAuth, Drive exports, and session management.
-  - [app/storage/](app/storage) implements lightweight JSON persistence for user tokens and documents.
+  - [app/models/](app/models), [app/repositories/](app/repositories), and [alembic/](alembic) provide the database layer.
 - [requirements.txt](requirements.txt) pins Python dependencies.
 - [Dockerfile](Dockerfile) builds a deployable image.
 - [.env.example](.env.example) lists mandatory secrets.
@@ -70,11 +70,11 @@ FastAPI reference implementation that powers the "edit text and sync to Google D
 1. Frontend calls `GET /auth/google/login` to retrieve the Google authorization URL.
 2. After the user consents, Google redirects to `GET /auth/google/callback?code=...&state=...`.
 3. The callback returns a `session_token`. Send it in the `X-Session-Token` header for every document request.
-4. Use the `/documents` endpoints to create or update text.
-5. Trigger `/documents/{id}/drive` to push the latest content to Google Drive. The response echoes the Drive file ID and URL.
+4. Use the `/api/documents` endpoints to create or update text.
+5. Trigger `/api/documents/{id}/drive` to push the latest content to Google Drive. The response echoes the Drive file ID and URL.
 
 ## Notes
 
-- This starter stores data under `DATA_DIR` (defaults to `./data`). Mount a persistent volume in production.
-- Tokens and documents sit in plain JSON for clarity; swap in a database by rewriting the store classes.
+- Persisted data lives in the database configured by `DATABASE_URL`; run Alembic migrations before first launch.
+- Redis is required for the Drive export background worker; configure `REDIS_URL` accordingly.
 - The API is CORS-enabled for localhost frontends (ports 3000 and 5173 by default). Adjust `CORS_ALLOW_ORIGINS` as needed.

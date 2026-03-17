@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import uuid
+import asyncio
 from typing import Any
 
 from google.auth.transport.requests import Request
@@ -41,7 +42,7 @@ class GoogleDriveService:
 
         credentials = self._build_credentials(user)
         if credentials.expired and credentials.refresh_token:
-            credentials.refresh(Request())
+            await asyncio.to_thread(credentials.refresh, Request())
             await self._user_repo.update_tokens(
                 user_id=user.id,
                 access_token=credentials.token,
@@ -62,7 +63,7 @@ class GoogleDriveService:
         service = build("drive", "v3", credentials=credentials, cache_discovery=False)
 
         parent_id = self._settings.google_drive_parent_id
-        folder_id = self._get_or_create_folder(service, "_ESimulate", parent_id)
+        folder_id = await self._get_or_create_folder(service, "_ESimulate", parent_id)
 
         file_metadata: dict[str, Any] = {
             "name": f"{title}.txt",
@@ -77,8 +78,8 @@ class GoogleDriveService:
 
         try:
             if drive_file_id:
-                file = (
-                    service.files()
+                file = await asyncio.to_thread(
+                    lambda: service.files()
                     .update(
                         fileId=drive_file_id,
                         media_body=media_body,
@@ -89,8 +90,8 @@ class GoogleDriveService:
                 )
             else:
                 file_metadata["parents"] = [folder_id]
-                file = (
-                    service.files()
+                file = await asyncio.to_thread(
+                    lambda: service.files()
                     .create(body=file_metadata, media_body=media_body, fields="id, webViewLink")
                     .execute()
                 )
@@ -104,12 +105,12 @@ class GoogleDriveService:
         service = build("drive", "v3", credentials=credentials, cache_discovery=False)
 
         parent_id = self._settings.google_drive_parent_id
-        folder_id = self._get_or_create_folder(service, "_ESimulate", parent_id)
+        folder_id = await self._get_or_create_folder(service, "_ESimulate", parent_id)
 
         query = f"'{folder_id}' in parents and trashed = false"
         try:
-            results = (
-                service.files()
+            results = await asyncio.to_thread(
+                lambda: service.files()
                 .list(q=query, spaces="drive", fields="files(id, name, webViewLink, modifiedTime)")
                 .execute()
             )
@@ -123,7 +124,7 @@ class GoogleDriveService:
 
         try:
             request = service.files().get_media(fileId=drive_file_id)
-            content_bytes = request.execute()
+            content_bytes = await asyncio.to_thread(request.execute)
             if isinstance(content_bytes, bytes):
                 return content_bytes.decode("utf-8")
             return str(content_bytes)
@@ -135,17 +136,17 @@ class GoogleDriveService:
         service = build("drive", "v3", credentials=credentials, cache_discovery=False)
 
         try:
-            service.files().delete(fileId=drive_file_id).execute()
+            await asyncio.to_thread(lambda: service.files().delete(fileId=drive_file_id).execute())
         except HttpError as exc:
             raise DriveExportError("Failed to delete document from Google Drive") from exc
 
-    def _get_or_create_folder(self, service: Any, folder_name: str, parent_id: str | None = None) -> str:
+    async def _get_or_create_folder(self, service: Any, folder_name: str, parent_id: str | None = None) -> str:
         query = f"name = '{folder_name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
         if parent_id:
             query += f" and '{parent_id}' in parents"
 
         try:
-            results = service.files().list(q=query, spaces="drive", fields="files(id, name)").execute()
+            results = await asyncio.to_thread(lambda: service.files().list(q=query, spaces="drive", fields="files(id, name)").execute())
             files = results.get("files", [])
 
             if files:
@@ -155,7 +156,7 @@ class GoogleDriveService:
             if parent_id:
                 folder_metadata["parents"] = [parent_id]
 
-            folder = service.files().create(body=folder_metadata, fields="id").execute()
+            folder = await asyncio.to_thread(lambda: service.files().create(body=folder_metadata, fields="id").execute())
             return folder["id"]
         except HttpError as exc:
             raise DriveExportError(f"Failed to find or create folder '{folder_name}'") from exc
