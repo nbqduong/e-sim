@@ -38,7 +38,7 @@ async def google_callback(
         return RedirectResponse("/not-authorized")
 
     try:
-        auth_result = oauth_service.exchange_code(code=code, state=state)
+        auth_result = await oauth_service.exchange_code(code=code, state=state)
 
         response = RedirectResponse("/documents")
         response.set_cookie(
