@@ -62,6 +62,72 @@ public:
             buffer.erase(cursor, 1);
         }
     }
+
+    void moveCursorUp() {
+        // Find start of current line
+        int currentLineStart = cursor;
+        while (currentLineStart > 0 && buffer[currentLineStart - 1] != '\n') {
+            currentLineStart--;
+        }
+        
+        int column = cursor - currentLineStart;
+        
+        // If we are on the first line, move to start
+        if (currentLineStart == 0) {
+            cursor = 0;
+            return;
+        }
+        
+        // Find start of previous line
+        int prevLineStart = currentLineStart - 1;
+        while (prevLineStart > 0 && buffer[prevLineStart - 1] != '\n') {
+            prevLineStart--;
+        }
+        
+        // Calculate the length of previous line
+        int prevLineLength = (currentLineStart - 1) - prevLineStart;
+        
+        // Move to the same column or the end of the previous line
+        int targetColumn = std::min(column, prevLineLength);
+        cursor = prevLineStart + targetColumn;
+    }
+
+    void moveCursorDown() {
+        // Find start of current line
+        int currentLineStart = cursor;
+        while (currentLineStart > 0 && buffer[currentLineStart - 1] != '\n') {
+            currentLineStart--;
+        }
+        
+        int column = cursor - currentLineStart;
+        
+        // Find end of current line
+        int currentLineEnd = cursor;
+        while (currentLineEnd < static_cast<int>(buffer.size()) && buffer[currentLineEnd] != '\n') {
+            currentLineEnd++;
+        }
+        
+        // If we are on the last line, move to end
+        if (currentLineEnd == static_cast<int>(buffer.size())) {
+            cursor = static_cast<int>(buffer.size());
+            return;
+        }
+        
+        // the next line starts right after currentLineEnd
+        int nextLineStart = currentLineEnd + 1;
+        
+        // Find end of next line
+        int nextLineEnd = nextLineStart;
+        while (nextLineEnd < static_cast<int>(buffer.size()) && buffer[nextLineEnd] != '\n') {
+            nextLineEnd++;
+        }
+        
+        int nextLineLength = nextLineEnd - nextLineStart;
+        
+        // Move to the same column or the end of the next line
+        int targetColumn = std::min(column, nextLineLength);
+        cursor = nextLineStart + targetColumn;
+    }
 };
 
 static EditorState g_editor;
@@ -116,6 +182,22 @@ void editor_move_left() {
 EMSCRIPTEN_KEEPALIVE
 void editor_move_right() {
     g_editor.moveCursorRight();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void editor_move_up() {
+    g_editor.moveCursorUp();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void editor_move_down() {
+    g_editor.moveCursorDown();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void init_wasm_editor() {
+    g_editor.buffer = "";
+    g_editor.cursor = 0;
 }
 
 } // extern "C"
