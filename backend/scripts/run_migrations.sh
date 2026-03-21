@@ -20,6 +20,7 @@ fi
 # Ensure DATABASE_URL is set (example below)
 : "${DATABASE_URL:=postgresql+asyncpg://postgres:postgres@localhost:5432/esim}"
 export DATABASE_URL
+export PYTHONPATH="$(pwd)${PYTHONPATH:+:$PYTHONPATH}"
 
 # Run alembic from backend folder
 alembic -c alembic.ini upgrade head
