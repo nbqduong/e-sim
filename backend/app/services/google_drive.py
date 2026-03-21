@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import uuid
 from typing import Any
 
 from google.auth.transport.requests import Request
@@ -10,9 +11,8 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseUpload
 
 from app.core.config import Settings
-from app.schemas.auth import OAuthToken
-from app.schemas.document import Document
-from app.storage.token_store import TokenStore
+from app.models.user import User
+from app.repositories.user_repo import UserRepository
 
 
 class DriveAuthorizationError(RuntimeError):
@@ -29,44 +29,58 @@ DEFAULT_DRIVE_SCOPES = [
 
 
 class GoogleDriveService:
-    def __init__(self, *, settings: Settings, token_store: TokenStore) -> None:
+    def __init__(self, *, settings: Settings, user_repo: UserRepository) -> None:
         self._settings = settings
-        self._token_store = token_store
+        self._user_repo = user_repo
 
-    def export_document(self, *, user_id: str, document: Document) -> dict[str, Any]:
-        token = self._token_store.get(user_id)
-        if token is None:
+    async def _get_credentials(self, user_id: str) -> Credentials:
+        """Load credentials for the user, refreshing and persisting if expired."""
+        user = await self._user_repo.get_by_id(uuid.UUID(user_id))
+        if user is None or not user.access_token:
             raise DriveAuthorizationError("No Google credentials found for the current user")
 
-        credentials = self._build_credentials(token)
+        credentials = self._build_credentials(user)
         if credentials.expired and credentials.refresh_token:
             credentials.refresh(Request())
-            refreshed = token.update_from_credentials(credentials)
-            self._token_store.save(refreshed)
+            await self._user_repo.update_tokens(
+                user_id=user.id,
+                access_token=credentials.token,
+                refresh_token=credentials.refresh_token,
+                token_expiry=credentials.expiry,
+            )
+        return credentials
 
+    async def export_document(
+        self,
+        *,
+        user_id: str,
+        title: str,
+        content: str,
+        drive_file_id: str | None = None,
+    ) -> dict[str, Any]:
+        credentials = await self._get_credentials(user_id)
         service = build("drive", "v3", credentials=credentials, cache_discovery=False)
 
-        # Ensure _ESimulate folder exists
         parent_id = self._settings.google_drive_parent_id
         folder_id = self._get_or_create_folder(service, "_ESimulate", parent_id)
 
         file_metadata: dict[str, Any] = {
-            "name": f"{document.title}.txt",
+            "name": f"{title}.txt",
             "mimeType": "text/plain",
         }
 
         media_body = MediaIoBaseUpload(
-            io.BytesIO(document.content.encode("utf-8")),
+            io.BytesIO(content.encode("utf-8")),
             mimetype="text/plain",
             resumable=False,
         )
 
         try:
-            if document.drive_file_id:
+            if drive_file_id:
                 file = (
                     service.files()
                     .update(
-                        fileId=document.drive_file_id,
+                        fileId=drive_file_id,
                         media_body=media_body,
                         body=file_metadata,
                         fields="id, webViewLink",
@@ -80,29 +94,18 @@ class GoogleDriveService:
                     .create(body=file_metadata, media_body=media_body, fields="id, webViewLink")
                     .execute()
                 )
-        except HttpError as exc:  # pragma: no cover - relies on network
+        except HttpError as exc:
             raise DriveExportError("Failed to upload document to Google Drive") from exc
 
         return file
 
-    def list_documents(self, *, user_id: str) -> list[dict[str, Any]]:
-        token = self._token_store.get(user_id)
-        if token is None:
-            raise DriveAuthorizationError("No Google credentials found for the current user")
-
-        credentials = self._build_credentials(token)
-        if credentials.expired and credentials.refresh_token:
-            credentials.refresh(Request())
-            refreshed = token.update_from_credentials(credentials)
-            self._token_store.save(refreshed)
-
+    async def list_documents(self, *, user_id: str) -> list[dict[str, Any]]:
+        credentials = await self._get_credentials(user_id)
         service = build("drive", "v3", credentials=credentials, cache_discovery=False)
 
-        # Get folder ID
         parent_id = self._settings.google_drive_parent_id
         folder_id = self._get_or_create_folder(service, "_ESimulate", parent_id)
 
-        # List files in the folder
         query = f"'{folder_id}' in parents and trashed = false"
         try:
             results = (
@@ -114,18 +117,8 @@ class GoogleDriveService:
         except HttpError as exc:
             raise DriveExportError("Failed to list documents from Google Drive") from exc
 
-    def get_document_content(self, *, user_id: str, drive_file_id: str) -> str:
-        """Download the text content of a file from Google Drive."""
-        token = self._token_store.get(user_id)
-        if token is None:
-            raise DriveAuthorizationError("No Google credentials found for the current user")
-
-        credentials = self._build_credentials(token)
-        if credentials.expired and credentials.refresh_token:
-            credentials.refresh(Request())
-            refreshed = token.update_from_credentials(credentials)
-            self._token_store.save(refreshed)
-
+    async def get_document_content(self, *, user_id: str, drive_file_id: str) -> str:
+        credentials = await self._get_credentials(user_id)
         service = build("drive", "v3", credentials=credentials, cache_discovery=False)
 
         try:
@@ -137,18 +130,8 @@ class GoogleDriveService:
         except HttpError as exc:
             raise DriveExportError("Failed to download document content from Google Drive") from exc
 
-    def delete_document(self, *, user_id: str, drive_file_id: str) -> None:
-        """Trash a file on Google Drive."""
-        token = self._token_store.get(user_id)
-        if token is None:
-            raise DriveAuthorizationError("No Google credentials found for the current user")
-
-        credentials = self._build_credentials(token)
-        if credentials.expired and credentials.refresh_token:
-            credentials.refresh(Request())
-            refreshed = token.update_from_credentials(credentials)
-            self._token_store.save(refreshed)
-
+    async def delete_document(self, *, user_id: str, drive_file_id: str) -> None:
+        credentials = await self._get_credentials(user_id)
         service = build("drive", "v3", credentials=credentials, cache_discovery=False)
 
         try:
@@ -168,7 +151,6 @@ class GoogleDriveService:
             if files:
                 return files[0]["id"]
 
-            # Create folder
             folder_metadata = {"name": folder_name, "mimeType": "application/vnd.google-apps.folder"}
             if parent_id:
                 folder_metadata["parents"] = [parent_id]
@@ -178,15 +160,15 @@ class GoogleDriveService:
         except HttpError as exc:
             raise DriveExportError(f"Failed to find or create folder '{folder_name}'") from exc
 
-    def _build_credentials(self, token: OAuthToken) -> Credentials:
-        scopes = token.scope.split() if token.scope else DEFAULT_DRIVE_SCOPES
+    def _build_credentials(self, user: User) -> Credentials:
+        scopes = user.token_scope.split() if user.token_scope else DEFAULT_DRIVE_SCOPES
         return Credentials(
-            token=token.access_token,
-            refresh_token=token.refresh_token,
+            token=user.access_token,
+            refresh_token=user.refresh_token,
             token_uri="https://oauth2.googleapis.com/token",
             client_id=self._settings.google_client_id,
             client_secret=self._settings.google_client_secret,
             scopes=scopes,
-            id_token=token.id_token,
-            expiry=token.token_expiry,
+            id_token=user.id_token,
+            expiry=user.token_expiry,
         )

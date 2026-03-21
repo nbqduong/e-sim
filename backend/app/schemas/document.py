@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import AnyHttpUrl, BaseModel, Field
 
@@ -11,6 +12,7 @@ class DocumentBase(BaseModel):
 
 
 class DocumentCreateRequest(DocumentBase):
+    project_id: UUID
     drive_file_id: str | None = None
 
 
@@ -19,16 +21,24 @@ class DocumentUpdateRequest(BaseModel):
     content: str | None = Field(default=None, max_length=16_384)
 
 
-class Document(DocumentBase):
-    id: str
-    user_id: str
-    updated_at: str
+class DocumentResponse(DocumentBase):
+    id: UUID
+    project_id: UUID
+    user_id: UUID
     drive_file_id: str | None = None
     drive_file_url: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# Backward-compat alias
+Document = DocumentResponse
 
 
 class DocumentListResponse(BaseModel):
-    documents: list[Document]
+    documents: list[DocumentResponse]
 
 
 class DriveSaveResponse(BaseModel):

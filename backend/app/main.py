@@ -1,19 +1,32 @@
 from __future__ import annotations
 
+import logging
+import os
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import auth, documents
+from app.api.routes import auth, documents, projects
 from app.core.config import settings
+from app.core.database import engine
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):  # pragma: no cover - FastAPI hook
-    settings.ensure_data_dir()
+async def lifespan(app: FastAPI):
+    # Verify DB connectivity on startup
+    if engine:
+        async with engine.connect() as conn:
+            await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
+        logger.info("Database connection verified")
     yield
+    if engine:
+        await engine.dispose()
 
 
 app = FastAPI(
@@ -30,37 +43,34 @@ app.add_middleware(
     allow_credentials=True,
 )
 
-import os
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-
 app.include_router(auth.router, prefix="/auth")
+app.include_router(projects.router)
 app.include_router(documents.router)
 
 
 @app.get("/health")
 async def healthcheck() -> dict[str, str]:
-    return {"status": "ok", "timestamp": datetime.now(tz=UTC).isoformat()}
+    return {"status": "ok", "timestamp": datetime.now(tz=timezone.utc).isoformat()}
 
 # Attempt to locate the frontend 'out' directory
-_settings = settings
-if _settings.frontend_dist_dir:
-    frontend_dist = _settings.frontend_dist_dir
+if settings.frontend_dist_dir:
+    frontend_dist = settings.frontend_dist_dir
 else:
     frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend_output"))
     if not os.path.isdir(frontend_dist):
         frontend_dist = "/app/frontend/out"
 
-print(f"[DEBUG] frontend_dist = {frontend_dist}")
-print(f"[DEBUG] frontend_dist exists = {os.path.isdir(frontend_dist)}")
 if os.path.isdir(frontend_dist):
-    print(f"[DEBUG] frontend_dist contents: {os.listdir(frontend_dist)}")
     next_dist = os.path.join(frontend_dist, "_next")
     if os.path.isdir(next_dist):
         app.mount("/_next", StaticFiles(directory=next_dist), name="next-static")
     
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
+        # Never intercept API or auth routes
+        if full_path.startswith(("api/", "auth/", "health")):
+            return {"error": "Not found"}
+
         # Normalize the path by removing trailing slash for consistent matching
         full_path = full_path.rstrip("/")
         
