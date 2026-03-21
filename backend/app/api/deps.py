@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.repositories.document_repo import DocumentRepository
 from app.repositories.project_repo import ProjectRepository
 from app.repositories.user_repo import UserRepository
+from app.repositories.task_repo import TaskRepository
 from app.services.google_drive import GoogleDriveService
 from app.services.google_oauth import GoogleOAuthService
 from app.services.session_manager import InvalidSessionError, SessionData, SessionManager
@@ -36,6 +37,10 @@ def get_project_repo(db: AsyncSession = Depends(get_db)) -> ProjectRepository:
 
 def get_document_repo(db: AsyncSession = Depends(get_db)) -> DocumentRepository:
     return DocumentRepository(db)
+
+
+def get_task_repo(db: AsyncSession = Depends(get_db)) -> TaskRepository:
+    return TaskRepository(db)
 
 
 def get_google_oauth_service(
