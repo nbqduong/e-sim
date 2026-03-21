@@ -2,38 +2,46 @@
 
 import React, { useEffect, useState } from 'react'
 
-interface Document {
-    id: string;
-    user_id: string;
-    title: string;
-    content: string;
-    updated_at: string;
-    drive_file_id: string | null;
-    drive_file_url: string | null;
+const API_BASE = 'http://localhost:8000'
+
+interface Project {
+    id: string
+    user_id: string
+    title: string
+    description: string
+    drive_folder_id: string | null
+    created_at: string
+    updated_at: string
 }
 
-interface DocumentListResponse {
-    documents: Document[];
+interface ProjectListResponse {
+    projects: Project[]
 }
 
 export default function DocumentsPage() {
-    const [documents, setDocuments] = useState<Document[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [deleting, setDeleting] = useState<string | null>(null);
+    const [projects, setProjects] = useState<Project[]>([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+    const [deleting, setDeleting] = useState<string | null>(null)
 
-    const handleDelete = async (docId: string, docTitle: string) => {
-        if (!confirm(`Delete "${docTitle}"? This will permanently remove it from Google Drive.`)) return;
-        setDeleting(docId);
+    // Create project form state
+    const [showCreateForm, setShowCreateForm] = useState(false)
+    const [newTitle, setNewTitle] = useState('')
+    const [newDescription, setNewDescription] = useState('')
+    const [creating, setCreating] = useState(false)
+
+    const handleDelete = async (projectId: string, projectTitle: string) => {
+        if (!confirm(`Delete project "${projectTitle}"? This will permanently remove it and all its documents.`)) return;
+        setDeleting(projectId);
         try {
-            const res = await fetch(`http://localhost:8000/api/documents/${docId}`, {
+            const res = await fetch(`${API_BASE}/api/projects/${projectId}`, {
                 method: 'DELETE',
                 credentials: 'include',
             });
             if (!res.ok && res.status !== 204) {
-                throw new Error('Failed to delete document');
+                throw new Error('Failed to delete project');
             }
-            setDocuments(prev => prev.filter(d => d.id !== docId));
+            setProjects(prev => prev.filter(p => p.id !== projectId));
         } catch (err: any) {
             alert(`Delete failed: ${err.message}`);
         } finally {
@@ -41,26 +49,46 @@ export default function DocumentsPage() {
         }
     };
 
+    const handleCreateProject = async () => {
+        if (!newTitle.trim()) return
+        setCreating(true)
+        try {
+            const res = await fetch(`${API_BASE}/api/projects/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ title: newTitle.trim(), description: newDescription.trim() }),
+            })
+            if (!res.ok) throw new Error(await res.text())
+            const project: Project = await res.json()
+            setProjects(prev => [project, ...prev])
+            setNewTitle('')
+            setNewDescription('')
+            setShowCreateForm(false)
+        } catch (err: any) {
+            alert(`Create failed: ${err.message}`)
+        } finally {
+            setCreating(false)
+        }
+    }
+
     useEffect(() => {
-        const fetchDocuments = async () => {
+        const fetchProjects = async () => {
             try {
-                const response = await fetch('http://localhost:8000/api/documents/', {
+                const response = await fetch(`${API_BASE}/api/projects/`, {
                     method: 'GET',
                     credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
                 });
 
                 if (!response.ok) {
                     if (response.status === 401) {
                         throw new Error('Not authorized. Please log in.');
                     }
-                    throw new Error('Failed to fetch documents');
+                    throw new Error('Failed to fetch projects');
                 }
 
-                const data: DocumentListResponse = await response.json();
-                setDocuments(data.documents || []);
+                const data: ProjectListResponse = await response.json();
+                setProjects(data.projects || []);
             } catch (err: any) {
                 setError(err.message);
             } finally {
@@ -68,7 +96,7 @@ export default function DocumentsPage() {
             }
         };
 
-        fetchDocuments();
+        fetchProjects();
     }, []);
 
     return (
@@ -104,8 +132,8 @@ export default function DocumentsPage() {
                     </p>
                 </header>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '2rem' }}>
-                    <button onClick={() => window.location.href = '/documents/create'}
+                <div style={{ display: 'flex', justifyContent: 'flex-start', gap: '1rem', marginBottom: '2rem' }}>
+                    <button onClick={() => setShowCreateForm(true)}
                         style={{
                             display: 'flex', alignItems: 'center', gap: '0.6rem',
                             padding: '0.75rem 1.75rem',
@@ -124,9 +152,87 @@ export default function DocumentsPage() {
                             e.currentTarget.style.boxShadow = '0 4px 15px rgba(0, 170, 255, 0.2)';
                         }}
                     >
-                        <span style={{ fontSize: '1.3rem' }}>+</span> New Document
+                        <span style={{ fontSize: '1.3rem' }}>+</span> New Project
+                    </button>
+
+                    <button onClick={() => window.location.href = '/documents/create'}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '0.6rem',
+                            padding: '0.75rem 1.75rem',
+                            background: 'rgba(0,170,255,0.1)',
+                            color: 'var(--primary)', border: '1px solid rgba(0,170,255,0.3)', borderRadius: '10px',
+                            fontWeight: '600', fontSize: '0.95rem',
+                            cursor: 'pointer', transition: 'all 0.25s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.background = 'rgba(0,170,255,0.2)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.background = 'rgba(0,170,255,0.1)';
+                        }}
+                    >
+                        <span style={{ fontSize: '1.3rem' }}>📄</span> New Document
                     </button>
                 </div>
+
+                {/* Create Project Form */}
+                {showCreateForm && (
+                    <div style={{
+                        background: 'var(--secondary)', border: '1px solid rgba(0,170,255,0.3)',
+                        borderRadius: '16px', padding: '1.5rem', marginBottom: '2rem',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.3), 0 0 15px rgba(0,170,255,0.08)',
+                    }}>
+                        <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', color: 'var(--foreground)' }}>Create New Project</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            <input
+                                type="text" placeholder="Project title" autoFocus
+                                value={newTitle} onChange={e => setNewTitle(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleCreateProject()}
+                                style={{
+                                    background: 'var(--glass)', border: '1px solid var(--border)',
+                                    borderRadius: '8px', padding: '0.6rem 0.75rem',
+                                    color: 'var(--foreground)', fontSize: '0.95rem', outline: 'none',
+                                    transition: 'border-color 0.2s',
+                                }}
+                                onFocus={e => e.currentTarget.style.borderColor = 'rgba(0,170,255,0.5)'}
+                                onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                            />
+                            <textarea
+                                placeholder="Description (optional)" rows={2}
+                                value={newDescription} onChange={e => setNewDescription(e.target.value)}
+                                style={{
+                                    background: 'var(--glass)', border: '1px solid var(--border)',
+                                    borderRadius: '8px', padding: '0.6rem 0.75rem',
+                                    color: 'var(--foreground)', fontSize: '0.9rem', outline: 'none',
+                                    resize: 'vertical', fontFamily: 'inherit',
+                                    transition: 'border-color 0.2s',
+                                }}
+                                onFocus={e => e.currentTarget.style.borderColor = 'rgba(0,170,255,0.5)'}
+                                onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                            />
+                            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                                <button onClick={() => { setShowCreateForm(false); setNewTitle(''); setNewDescription('') }}
+                                    style={{
+                                        padding: '0.5rem 1.25rem', background: 'transparent',
+                                        color: 'var(--text-muted)', border: '1px solid var(--border)',
+                                        borderRadius: '8px', fontSize: '0.85rem', cursor: 'pointer',
+                                    }}
+                                >Cancel</button>
+                                <button onClick={handleCreateProject} disabled={creating || !newTitle.trim()}
+                                    style={{
+                                        padding: '0.5rem 1.25rem',
+                                        background: !newTitle.trim() ? 'rgba(0,170,255,0.3)' : 'linear-gradient(135deg, #0066cc 0%, #00aaff 100%)',
+                                        color: '#fff', border: 'none', borderRadius: '8px',
+                                        fontSize: '0.85rem', fontWeight: 600,
+                                        cursor: !newTitle.trim() ? 'not-allowed' : 'pointer',
+                                    }}
+                                >{creating ? 'Creating...' : 'Create'}</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {loading ? (
                     <div style={{ textAlign: 'center', margin: '4rem 0' }}>
@@ -153,19 +259,19 @@ export default function DocumentsPage() {
                             >Login with Google</button>
                         )}
                     </div>
-                ) : documents.length === 0 ? (
+                ) : projects.length === 0 ? (
                     <div style={{
                         textAlign: 'center', color: 'var(--text-muted)', padding: '4rem',
                         background: 'var(--glass)', borderRadius: '24px', border: '1px dashed var(--border)'
                     }}>
-                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
-                        <h3 style={{ color: 'white', marginBottom: '0.5rem' }}>No projects found</h3>
-                        <p>There are no files in your E-Sim folder yet.</p>
+                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📁</div>
+                        <h3 style={{ color: 'white', marginBottom: '0.5rem' }}>No projects yet</h3>
+                        <p>Create your first project to get started.</p>
                     </div>
                 ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
-                        {documents.map((doc) => (
-                            <div key={doc.id} style={{
+                        {projects.map((project) => (
+                            <div key={project.id} style={{
                                 background: 'var(--secondary)', border: '1px solid var(--border)',
                                 borderRadius: '16px', padding: '1.5rem', transition: 'all 0.3s ease',
                                 cursor: 'pointer', display: 'flex', flexDirection: 'column', height: '210px',
@@ -182,7 +288,7 @@ export default function DocumentsPage() {
                                     e.currentTarget.style.borderColor = 'var(--border)';
                                 }}
                                 onClick={() => {
-                                    window.location.href = `/documents/modify?id=${doc.id}&title=${encodeURIComponent(doc.title || 'Untitled')}`;
+                                    window.location.href = `/documents/create?projectId=${project.id}`;
                                 }}
                             >
                                 <div style={{ flex: 1 }}>
@@ -191,20 +297,25 @@ export default function DocumentsPage() {
                                             width: '42px', height: '42px', borderRadius: '10px',
                                             background: 'var(--primary-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                             color: 'var(--primary)', fontSize: '1.3rem', border: '1px solid var(--border)'
-                                        }}>⚡</div>
+                                        }}>📁</div>
                                         <span style={{
                                             fontSize: '0.7rem', padding: '4px 8px', borderRadius: '4px',
                                             background: 'rgba(0,170,255,0.08)', color: 'var(--primary)',
                                             fontWeight: 600, border: '1px solid var(--border)'
                                         }}>
-                                            {doc.drive_file_id ? 'GDrive Sync' : 'Local'}
+                                            {project.drive_folder_id ? 'GDrive Sync' : 'Local'}
                                         </span>
                                     </div>
                                     <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.15rem', fontWeight: '700', color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                        {doc.title || 'Untitled Project'}
+                                        {project.title || 'Untitled Project'}
                                     </h3>
-                                    <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                                        MODIFIED: {new Date(doc.updated_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase()}
+                                    {project.description && (
+                                        <p style={{ margin: '0 0 0.5rem', fontSize: '0.82rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                                            {project.description}
+                                        </p>
+                                    )}
+                                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                                        MODIFIED: {new Date(project.updated_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase()}
                                     </p>
                                 </div>
 
@@ -215,17 +326,18 @@ export default function DocumentsPage() {
                                 }}>
                                     OPEN PROJECT
                                     <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                        <button onClick={(e) => { e.stopPropagation(); handleDelete(doc.id, doc.title || 'Untitled') }}
-                                            disabled={deleting === doc.id}
+                                        <button onClick={(e) => { e.stopPropagation(); handleDelete(project.id, project.title || 'Untitled') }}
+                                            disabled={deleting === project.id}
                                             style={{
                                                 background: 'rgba(255, 64, 96, 0.1)', border: '1px solid rgba(255, 64, 96, 0.2)',
                                                 borderRadius: '6px', padding: '4px 8px', color: 'var(--error)', fontSize: '0.85rem',
-                                                transition: 'all 0.2s', opacity: deleting === doc.id ? 0.5 : 1,
+                                                transition: 'all 0.2s', opacity: deleting === project.id ? 0.5 : 1,
+                                                cursor: 'pointer',
                                             }}
                                             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 64, 96, 0.25)'; e.currentTarget.style.color = '#ff4060' }}
                                             onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255, 64, 96, 0.1)'; e.currentTarget.style.color = 'var(--error)' }}
                                         >
-                                            {deleting === doc.id ? '...' : '🗑'}
+                                            {deleting === project.id ? '...' : '🗑'}
                                         </button>
                                         <span style={{ fontSize: '1.3rem' }}>&rarr;</span>
                                     </span>

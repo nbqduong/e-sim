@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     session_ttl_seconds: int = Field(default=60 * 60 * 24, alias="SESSION_TTL_SECONDS")
     state_ttl_seconds: int = Field(default=300, alias="STATE_TTL_SECONDS")
     data_dir: Path = Field(default=Path("./data"), alias="DATA_DIR")
+    database_url: str = Field(default="", alias="DATABASE_URL")
 
     google_client_id: str | None = Field(default=None, alias="GOOGLE_CLIENT_ID")
     google_client_secret: str | None = Field(default=None, alias="GOOGLE_CLIENT_SECRET")

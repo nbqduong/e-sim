@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
 from typing import Any
@@ -12,9 +12,9 @@ from google.oauth2 import id_token
 from google_auth_oauthlib.flow import Flow
 
 from app.core.config import Settings
-from app.schemas.auth import AuthResult, OAuthToken
+from app.schemas.auth import AuthResult
 from app.services.session_manager import SessionManager
-from app.storage.token_store import TokenStore
+from app.repositories.user_repo import UserRepository
 from app.utils.state_cache import StateCache
 
 logger = logging.getLogger(__name__)
@@ -44,12 +44,12 @@ class GoogleOAuthService:
         self,
         *,
         settings: Settings,
-        token_store: TokenStore,
+        user_repo: UserRepository,
         session_manager: SessionManager,
         state_cache: StateCache,
     ) -> None:
         self._settings = settings
-        self._token_store = token_store
+        self._user_repo = user_repo
         self._session_manager = session_manager
         self._state_cache = state_cache
 
@@ -64,7 +64,7 @@ class GoogleOAuthService:
         self._state_cache.issue({"code_verifier": flow.code_verifier}, token=state)
         return authorization_url
 
-    def exchange_code(self, *, code: str, state: str) -> AuthResult:
+    async def exchange_code(self, *, code: str, state: str) -> AuthResult:
         self._ensure_credentials()
         state_payload = self._state_cache.get(state)
         if state_payload is None:
@@ -85,24 +85,27 @@ class GoogleOAuthService:
         credentials = flow.credentials
         profile = self._extract_profile(credentials.id_token)
 
-        token = OAuthToken(
-            user_id=profile["sub"],
+        # Create or update user in the database
+        user = await self._user_repo.get_or_create_by_google_sub(
+            google_sub=profile["sub"],
             email=profile["email"],
+            display_name=profile.get("name"),
             access_token=credentials.token,
             refresh_token=credentials.refresh_token,
             token_expiry=credentials.expiry,
-            scope=" ".join(credentials.scopes or []),
+            token_scope=" ".join(credentials.scopes or []),
             id_token=credentials.id_token,
         )
-        self._token_store.save(token)
 
-        session_token = self._session_manager.issue(user_id=token.user_id, email=token.email)
+        session_token = self._session_manager.issue(
+            user_id=str(user.id), email=user.email
+        )
 
         expires_in = self._calculate_expires_in(credentials.expiry)
         return AuthResult(
             session_token=session_token,
-            user_id=token.user_id,
-            email=token.email,
+            user_id=str(user.id),
+            email=user.email,
             expires_in=expires_in,
         )
 
@@ -130,8 +133,8 @@ class GoogleOAuthService:
         if expiry is None:
             return self._settings.session_ttl_seconds
         if expiry.tzinfo is None:
-            expiry = expiry.replace(tzinfo=UTC)
-        now = datetime.now(tz=UTC)
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        now = datetime.now(tz=timezone.utc)
         delta = int(max((expiry - now).total_seconds(), 0))
         return delta or self._settings.session_ttl_seconds
 

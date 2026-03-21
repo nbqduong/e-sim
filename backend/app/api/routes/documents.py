@@ -1,139 +1,129 @@
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import (
     get_current_user,
-    get_document_store,
+    get_document_repo,
     get_google_drive_service,
 )
+from app.repositories.document_repo import DocumentRepository
 from app.schemas.document import (
-    Document,
     DocumentCreateRequest,
     DocumentListResponse,
+    DocumentResponse,
     DocumentUpdateRequest,
     DriveSaveResponse,
 )
 from app.services.google_drive import DriveAuthorizationError, DriveExportError, GoogleDriveService
 from app.services.session_manager import SessionData
-from app.storage.document_store import DocumentStore
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
 
-@router.get("/", response_model=DocumentListResponse)
+@router.get("/project/{project_id}", response_model=DocumentListResponse)
 async def list_documents(
+    project_id: uuid.UUID,
     current_user: SessionData = Depends(get_current_user),
-    drive_service: GoogleDriveService = Depends(get_google_drive_service),
+    doc_repo: DocumentRepository = Depends(get_document_repo),
 ) -> DocumentListResponse:
-    try:
-        drive_files = drive_service.list_documents(user_id=current_user.user_id)
-    except DriveAuthorizationError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
-    except DriveExportError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
-
-    documents = []
-    for f in drive_files:
-        documents.append(
-            Document(
-                id=f["id"],
-                user_id=current_user.user_id,
-                title=f["name"].replace(".txt", ""),
-                content="",  # Content is not fetched during listing
-                updated_at=f.get("modifiedTime", ""),
-                drive_file_id=f["id"],
-                drive_file_url=f.get("webViewLink"),
-            )
-        )
-
-    return DocumentListResponse(documents=documents)
+    docs = await doc_repo.list_for_project(
+        project_id=project_id, user_id=uuid.UUID(current_user.user_id)
+    )
+    return DocumentListResponse(
+        documents=[DocumentResponse.model_validate(d) for d in docs]
+    )
 
 
-@router.get("/{drive_file_id}/content")
-async def get_document_content(
-    drive_file_id: str,
+@router.get("/{document_id}", response_model=DocumentResponse)
+async def get_document(
+    document_id: uuid.UUID,
     current_user: SessionData = Depends(get_current_user),
-    drive_service: GoogleDriveService = Depends(get_google_drive_service),
-) -> dict:
-    """Fetch the text content of a document from Google Drive."""
-    try:
-        content = drive_service.get_document_content(
-            user_id=current_user.user_id, drive_file_id=drive_file_id
-        )
-    except DriveAuthorizationError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
-    except DriveExportError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
-
-    return {"drive_file_id": drive_file_id, "content": content}
+    doc_repo: DocumentRepository = Depends(get_document_repo),
+) -> DocumentResponse:
+    doc = await doc_repo.get(document_id=document_id, user_id=uuid.UUID(current_user.user_id))
+    if doc is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    return DocumentResponse.model_validate(doc)
 
 
-@router.delete("/{drive_file_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_document(
-    drive_file_id: str,
-    current_user: SessionData = Depends(get_current_user),
-    drive_service: GoogleDriveService = Depends(get_google_drive_service),
-) -> None:
-    """Delete a document from Google Drive."""
-    try:
-        drive_service.delete_document(
-            user_id=current_user.user_id, drive_file_id=drive_file_id
-        )
-    except DriveAuthorizationError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
-    except DriveExportError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
-
-
-@router.post("/", response_model=Document, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
 async def create_document(
     payload: DocumentCreateRequest,
     current_user: SessionData = Depends(get_current_user),
-    store: DocumentStore = Depends(get_document_store),
-) -> Document:
-    return store.create(user_id=current_user.user_id, payload=payload)
+    doc_repo: DocumentRepository = Depends(get_document_repo),
+) -> DocumentResponse:
+    doc = await doc_repo.create(
+        project_id=payload.project_id,
+        user_id=uuid.UUID(current_user.user_id),
+        title=payload.title,
+        content=payload.content,
+    )
+    return DocumentResponse.model_validate(doc)
 
 
-@router.put("/{document_id}", response_model=Document)
+@router.put("/{document_id}", response_model=DocumentResponse)
 async def update_document(
-    document_id: str,
+    document_id: uuid.UUID,
     payload: DocumentUpdateRequest,
     current_user: SessionData = Depends(get_current_user),
-    store: DocumentStore = Depends(get_document_store),
-) -> Document:
-    document = store.update(user_id=current_user.user_id, document_id=document_id, payload=payload)
-    if document is None:
+    doc_repo: DocumentRepository = Depends(get_document_repo),
+) -> DocumentResponse:
+    update_data = payload.model_dump(exclude_unset=True)
+    doc = await doc_repo.update(
+        document_id=document_id,
+        user_id=uuid.UUID(current_user.user_id),
+        **update_data,
+    )
+    if doc is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
-    return document
+    return DocumentResponse.model_validate(doc)
+
+
+@router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_document(
+    document_id: uuid.UUID,
+    current_user: SessionData = Depends(get_current_user),
+    doc_repo: DocumentRepository = Depends(get_document_repo),
+) -> None:
+    deleted = await doc_repo.delete(
+        document_id=document_id, user_id=uuid.UUID(current_user.user_id)
+    )
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
 
 @router.post("/{document_id}/drive", response_model=DriveSaveResponse)
-def save_document_to_drive(
-    document_id: str,
+async def save_document_to_drive(
+    document_id: uuid.UUID,
     current_user: SessionData = Depends(get_current_user),
-    store: DocumentStore = Depends(get_document_store),
+    doc_repo: DocumentRepository = Depends(get_document_repo),
     drive_service: GoogleDriveService = Depends(get_google_drive_service),
 ) -> DriveSaveResponse:
-    document = store.get(user_id=current_user.user_id, document_id=document_id)
-    if document is None:
+    doc = await doc_repo.get(
+        document_id=document_id, user_id=uuid.UUID(current_user.user_id)
+    )
+    if doc is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
     try:
-        result = drive_service.export_document(user_id=current_user.user_id, document=document)
+        result = await drive_service.export_document(
+            user_id=current_user.user_id, title=doc.title, content=doc.content,
+            drive_file_id=doc.drive_file_id,
+        )
     except DriveAuthorizationError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     except DriveExportError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
-    updated = store.update_drive_metadata(
-        user_id=current_user.user_id,
+    await doc_repo.update_drive_metadata(
         document_id=document_id,
-        file_id=result["id"],
-        file_url=result.get("webViewLink"),
+        user_id=uuid.UUID(current_user.user_id),
+        drive_file_id=result["id"],
+        drive_file_url=result.get("webViewLink"),
     )
-    if updated is None:  # pragma: no cover - defensive guard
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
     return DriveSaveResponse(
         drive_file_id=result["id"],

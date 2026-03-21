@@ -1,0 +1,34 @@
+version: "3"
+
+tasks:
+  default:
+    desc: Clone repo, init submodules, build and run
+    cmds:
+      - task: local
+
+  local:
+    desc: Init submodules and build/run all services
+    cmds:
+      - git submodule update --init
+      - docker compose up frontend --build
+      - docker compose up backend --build
+
+  deploy:
+    desc: Deploy backend 
+    cmds:
+      - docker compose -f docker-compose.prod.yml up
+
+  release:
+    desc: Build and release backend image to Docker Hub
+    cmds:
+      - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+      - task: local
+      - docker tag e-sim-backend "$DOCKER_USERNAME/e-sim-backend:latest"
+      - docker push "$DOCKER_USERNAME/e-sim-backend:latest"
+
+  launch_backend:
+    desc: Serve backend only (for development)
+    cmds:
+      - docker compose run --rm --service-ports backend bash
+
+
