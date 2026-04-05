@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     api_version: str = Field(default="1.0.0", alias="API_VERSION")
     session_secret: str = Field(default="change-me", alias="SESSION_SECRET")
     session_ttl_seconds: int = Field(default=60 * 60 * 24, alias="SESSION_TTL_SECONDS")
+    session_cookie_secure: bool = Field(default=False, alias="SESSION_COOKIE_SECURE")
     state_ttl_seconds: int = Field(default=300, alias="STATE_TTL_SECONDS")
     data_dir: Path = Field(default=Path("./data"), alias="DATA_DIR")
     database_url: str = Field(default="", alias="DATABASE_URL")
@@ -26,6 +27,7 @@ class Settings(BaseSettings):
     google_drive_parent_id: str | None = Field(default=None, alias="GOOGLE_DRIVE_PARENT_ID")
     frontend_url: str = Field(default="http://localhost:8000", alias="FRONTEND_URL")
     frontend_dist_dir: str = Field(default="", alias="FRONTEND_DIST_DIR")
+    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
 
     cors_allow_origins: list[str] = Field(
         default_factory=lambda: ["http://localhost:5173", "http://localhost:8000"],

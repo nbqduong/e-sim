@@ -5,11 +5,17 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+from app.core.config import settings
 from app.models import Base
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+database_url = settings.database_url or config.get_main_option("sqlalchemy.url")
+if not database_url:
+    raise RuntimeError("DATABASE_URL must be configured for Alembic migrations")
+config.set_main_option("sqlalchemy.url", database_url)
 
 target_metadata = Base.metadata
 

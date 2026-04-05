@@ -47,7 +47,7 @@ async def google_callback(
             httponly=True,
             max_age=settings.session_ttl_seconds,
             samesite="lax",
-            secure=False,  # Set to True in production with HTTPS
+            secure=settings.session_cookie_secure,
         )
         return response
     except (OAuthStateError, OAuthExchangeError):
