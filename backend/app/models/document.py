@@ -18,6 +18,7 @@ class Document(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(120), nullable=False)
     content: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # Legacy nullable columns retained until a dedicated schema cleanup migration removes them.
     drive_file_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     drive_file_url: Mapped[str | None] = mapped_column(Text, nullable=True)
 

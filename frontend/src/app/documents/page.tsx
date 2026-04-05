@@ -9,7 +9,6 @@ interface Project {
     user_id: string
     title: string
     description: string
-    drive_folder_id: string | null
     created_at: string
     updated_at: string
 }
@@ -128,7 +127,7 @@ export default function DocumentsPage() {
                     <p style={{
                         fontSize: '1.2rem', color: 'var(--text-muted)', maxWidth: '500px', margin: '0 auto',
                     }}>
-                        View and manage all your project sync with google drive.
+                        View and manage your local projects and documents.
                     </p>
                 </header>
 
@@ -303,7 +302,7 @@ export default function DocumentsPage() {
                                             background: 'rgba(0,170,255,0.08)', color: 'var(--primary)',
                                             fontWeight: 600, border: '1px solid var(--border)'
                                         }}>
-                                            {project.drive_folder_id ? 'GDrive Sync' : 'Local'}
+                                            Project
                                         </span>
                                     </div>
                                     <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.15rem', fontWeight: '700', color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>

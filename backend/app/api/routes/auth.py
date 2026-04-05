@@ -5,7 +5,6 @@ from fastapi.responses import RedirectResponse
 
 from app.api.deps import get_google_oauth_service
 from app.core.config import settings
-from app.schemas.auth import AuthResult, AuthUrlResponse
 from app.services.google_oauth import (
     GoogleOAuthService,
     OAuthConfigurationError,

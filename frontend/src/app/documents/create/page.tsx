@@ -83,7 +83,12 @@ export default function DocumentCreatePage() {
                 const list: Project[] = data.projects || []
                 setProjects(list)
                 if (list.length > 0) {
-                    setSelectedProjectId(list[0].id)
+                    const params = new URLSearchParams(window.location.search)
+                    const requestedProjectId = params.get('projectId')
+                    const matchedProject = requestedProjectId
+                        ? list.find((project) => project.id === requestedProjectId)
+                        : null
+                    setSelectedProjectId(matchedProject?.id ?? list[0].id)
                 }
             } catch {
                 // ignore
@@ -298,42 +303,6 @@ export default function DocumentCreatePage() {
     }, [saving, documentId, title, selectedProjectId])
 
     /* ---------------------------------------------------------------- */
-    /*  Sync to Drive handler                                            */
-    /* ---------------------------------------------------------------- */
-    const handleSyncDrive = useCallback(async () => {
-        if (!documentId) {
-            // Save first, then sync
-            await handleSave()
-        }
-        const docId = documentId
-        if (!docId) return
-
-        setSaving(true)
-        setSaveStatus('saving')
-        setSaveMessage('Syncing to Drive...')
-
-        try {
-            const driveRes = await fetch(`${API_BASE}/api/documents/${docId}/drive`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-            })
-            if (!driveRes.ok) throw new Error(`Drive sync failed: ${await driveRes.text()}`)
-
-            setSaveStatus('saved')
-            setSaveMessage('Synced to Drive')
-            setTimeout(() => setSaveStatus('idle'), 3000)
-        } catch (err: any) {
-            console.error('Drive sync error:', err)
-            setSaveStatus('error')
-            setSaveMessage(err.message || 'Drive sync failed')
-            setTimeout(() => setSaveStatus('idle'), 4000)
-        } finally {
-            setSaving(false)
-        }
-    }, [documentId, handleSave])
-
-    /* ---------------------------------------------------------------- */
     /*  Render cursor inside text                                        */
     /* ---------------------------------------------------------------- */
     const renderEditorContent = () => {
@@ -459,21 +428,6 @@ export default function DocumentCreatePage() {
                         onMouseEnter={e => { if (!saving) { e.currentTarget.style.boxShadow = '0 0 20px rgba(0,170,255,0.4), 0 4px 12px rgba(0,100,200,0.3)'; e.currentTarget.style.transform = 'translateY(-1px)' } }}
                         onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'translateY(0)' }}
                     >{saving ? 'Saving...' : 'Save'}</button>
-
-                    {/* Sync to Drive button */}
-                    <button onClick={handleSyncDrive} disabled={saving || !wasmReady || !documentId}
-                        title={!documentId ? 'Save the document first' : 'Sync to Google Drive'}
-                        style={{
-                            padding: '8px 16px', background: saving || !documentId ? 'rgba(255,255,255,0.05)' : 'rgba(0,170,255,0.12)',
-                            color: !documentId ? 'var(--text-muted)' : 'var(--primary)',
-                            border: `1px solid ${!documentId ? 'var(--border)' : 'rgba(0,170,255,0.3)'}`,
-                            borderRadius: '8px', fontWeight: 600, fontSize: '0.85rem',
-                            cursor: saving || !documentId ? 'not-allowed' : 'pointer',
-                            transition: 'all 0.2s', opacity: documentId ? 1 : 0.5,
-                        }}
-                        onMouseEnter={e => { if (!saving && documentId) { e.currentTarget.style.background = 'rgba(0,170,255,0.2)'; e.currentTarget.style.transform = 'translateY(-1px)' } }}
-                        onMouseLeave={e => { e.currentTarget.style.background = documentId ? 'rgba(0,170,255,0.12)' : 'rgba(255,255,255,0.05)'; e.currentTarget.style.transform = 'translateY(0)' }}
-                    >☁ Drive</button>
                 </div>
             </header>
 

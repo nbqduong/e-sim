@@ -48,9 +48,9 @@ export default function Home() {
           <p className={styles.featureDesc}>Write and edit system descriptions with our C++-compiled WebAssembly text editor for blazing-fast performance.</p>
         </div>
         <div className={styles.featureCard}>
-          <div className={styles.featureIcon}>☁️</div>
-          <h3 className={styles.featureTitle}>Google Drive Sync</h3>
-          <p className={styles.featureDesc}>Save your projects directly to Google Drive. Access and edit them from anywhere, on any device.</p>
+          <div className={styles.featureIcon}>🔐</div>
+          <h3 className={styles.featureTitle}>Secure Google Login</h3>
+          <p className={styles.featureDesc}>Sign in with Google, manage your projects locally, and keep the app focused on fast editing and authenticated CRUD.</p>
         </div>
       </section>
     </main>

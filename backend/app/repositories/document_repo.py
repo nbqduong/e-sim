@@ -67,22 +67,6 @@ class DocumentRepository:
         await self._session.flush()
         return doc
 
-    async def update_drive_metadata(
-        self,
-        *,
-        document_id: uuid.UUID,
-        user_id: uuid.UUID,
-        drive_file_id: str,
-        drive_file_url: str | None = None,
-    ) -> Document | None:
-        doc = await self.get(document_id=document_id, user_id=user_id)
-        if doc is None:
-            return None
-        doc.drive_file_id = drive_file_id
-        doc.drive_file_url = drive_file_url
-        await self._session.flush()
-        return doc
-
     async def delete(self, *, document_id: uuid.UUID, user_id: uuid.UUID) -> bool:
         doc = await self.get(document_id=document_id, user_id=user_id)
         if doc is None:
