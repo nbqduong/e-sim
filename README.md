@@ -19,3 +19,11 @@ task
 ```
 
 For more information read Taskfile.yml
+
+
+## Server deployment
+curl -O https://raw.githubusercontent.com/nbqduong/e-sim/main/scripts/deploy.sh
+
+```bash
+sh deploy.sh GITHUB_ACCESS_TOKEN
+```
