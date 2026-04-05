@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import auth, documents, projects
+from app.api.routes import auth, documents, projects, tasks
 from app.core.config import settings
 from app.core.database import engine
 
@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.session_secret == "change-me":
+        raise RuntimeError("SESSION_SECRET must be set to a secure value")
     # Verify DB connectivity on startup
     if engine:
         async with engine.connect() as conn:
@@ -37,7 +39,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_allow_origins or ["*"],
+    allow_origins=settings.cors_allow_origins,
     allow_methods=["*"],
     allow_headers=["*"],
     allow_credentials=True,
@@ -46,6 +48,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/auth")
 app.include_router(projects.router)
 app.include_router(documents.router)
+app.include_router(tasks.router)
 
 
 @app.get("/health")
