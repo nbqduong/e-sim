@@ -29,6 +29,6 @@ tasks:
   launch_backend:
     desc: Serve backend only (for development)
     cmds:
-      - docker compose run --rm --service-ports backend bash
+      - docker compose run --rm -it --service-ports -v $(pwd)/backend:/home/worker/source backend bash
 
 

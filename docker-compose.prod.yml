@@ -1,6 +1,6 @@
 services:
   backend:
-    image: ghcr.io/nbqduong/e-sim-backend:v0.0.3
+    image: ghcr.io/nbqduong/e-sim-backend:latest
     env_file:
       - .env
     environment:

@@ -26,14 +26,15 @@ services:
       - .:/home/worker/source
 
   frontend:
-    build: ./frontend
+    build: ./frontendv1
     image: e-sim-frontend
-    working_dir: /home/node/source/frontend
+    working_dir: /home/node/source/frontendv1
     environment:
       - IN_DIR=/home/node/source/frontend__input/
       - OUT_DIR=/home/node/source/backend/frontend__output/
     volumes:
       - .:/home/node/source
+    command: ["sh", "../scripts/build_frontend.sh"]
     depends_on:
       testapp:
         condition: service_completed_successfully

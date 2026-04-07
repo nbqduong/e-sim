@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     frontend_dist_dir: str = Field(default="", alias="FRONTEND_DIST_DIR")
 
     cors_allow_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:5173", "http://localhost:8000"],
+        default_factory=lambda: ["http://localhost:5173", "http://localhost:3000", "http://localhost:8000"],
         alias="CORS_ALLOW_ORIGINS",
     )
 
