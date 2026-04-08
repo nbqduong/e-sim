@@ -1,6 +1,6 @@
 services:
   backend:
-    image: ghcr.io/nbqduong/e-sim-backend:v0.0.3
+    image: ghcr.io/nbqduong/e-sim-backend:latest
     env_file:
       - .env
     environment:
@@ -10,8 +10,6 @@ services:
       - "8000:8000"
     depends_on:
       postgres:
-        condition: service_started
-      redis:
         condition: service_started
     restart: always
 
@@ -25,12 +23,6 @@ services:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432" 
-    restart: always
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379" 
     restart: always
 
 volumes:

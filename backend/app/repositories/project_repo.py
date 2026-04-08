@@ -18,8 +18,18 @@ class ProjectRepository:
         user_id: uuid.UUID,
         title: str,
         description: str = "",
+        content: str = "",
+        metadata_json: dict | None = None,
     ) -> Project:
-        project = Project(user_id=user_id, title=title, description=description)
+        if metadata_json is None:
+            metadata_json = {}
+        project = Project(
+            user_id=user_id, 
+            title=title, 
+            description=description,
+            content=content,
+            metadata_json=metadata_json
+        )
         self._session.add(project)
         await self._session.flush()
         return project
@@ -46,6 +56,8 @@ class ProjectRepository:
         project_id: uuid.UUID,
         title: str | None = None,
         description: str | None = None,
+        content: str | None = None,
+        metadata_json: dict | None = None,
     ) -> Project | None:
         project = await self.get(user_id=user_id, project_id=project_id)
         if project is None:
@@ -54,6 +66,12 @@ class ProjectRepository:
             project.title = title
         if description is not None:
             project.description = description
+        if content is not None:
+            project.content = content
+        if metadata_json is None:
+            pass
+        else:
+            project.metadata_json = metadata_json
         await self._session.flush()
         return project
 

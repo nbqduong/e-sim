@@ -6,11 +6,16 @@ tasks:
     cmds:
       - task: local
 
-  local:
-    desc: Init submodules and build/run all services
+  build_fronted:
+    desc: Build frontend only
     cmds:
       - git submodule update --init
       - docker compose up frontend --build
+
+  local:
+    desc: Init submodules and build/run all services
+    cmds:
+      - task: build_fronted
       - docker compose up backend --build
 
   deploy:
@@ -19,16 +24,18 @@ tasks:
       - docker compose -f docker-compose.prod.yml up
 
   release:
-    desc: Build and release backend image to Docker Hub
+    desc: Build and release backend image to GitHub Container Registry
     cmds:
-      - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+      - echo "$DOCKER_PASSWORD" | docker login ghcr.io -u "$DOCKER_USERNAME" --password-stdin
       - task: local
-      - docker tag e-sim-backend "$DOCKER_USERNAME/e-sim-backend:latest"
-      - docker push "$DOCKER_USERNAME/e-sim-backend:latest"
+      - docker tag e-sim-backend "ghcr.io/$DOCKER_USERNAME/e-sim-backend:latest"
+      - docker push "ghcr.io/$DOCKER_USERNAME/e-sim-backend:latest"
+      - docker logout ghcr.io
 
-  launch_backend:
+  launch_backend_dev:
     desc: Serve backend only (for development)
     cmds:
-      - docker compose run --rm --service-ports backend bash
+      - task: build_fronted
+      - docker compose run --rm -it --service-ports -v $(pwd)/backend:/home/worker/source backend bash
 
 
