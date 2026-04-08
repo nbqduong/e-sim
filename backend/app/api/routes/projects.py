@@ -52,6 +52,8 @@ async def create_project(
         user_id=uuid.UUID(current_user.user_id),
         title=payload.title,
         description=payload.description,
+        content=payload.content,
+        metadata_json=payload.metadata_json,
     )
     return ProjectResponse.model_validate(project)
 

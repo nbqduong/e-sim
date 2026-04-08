@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.repositories.document_repo import DocumentRepository
 from app.repositories.project_repo import ProjectRepository
 from app.repositories.user_repo import UserRepository
 from app.services.google_oauth import GoogleOAuthService
@@ -31,10 +30,6 @@ def get_user_repo(db: AsyncSession = Depends(get_db)) -> UserRepository:
 
 def get_project_repo(db: AsyncSession = Depends(get_db)) -> ProjectRepository:
     return ProjectRepository(db)
-
-
-def get_document_repo(db: AsyncSession = Depends(get_db)) -> DocumentRepository:
-    return DocumentRepository(db)
 
 
 def get_google_oauth_service(

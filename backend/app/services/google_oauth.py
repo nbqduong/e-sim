@@ -56,10 +56,12 @@ class GoogleOAuthService:
     def build_login_url(self) -> str:
         self._ensure_credentials()
         flow = self._build_flow()
-        authorization_url, state = flow.authorization_url(
-            include_granted_scopes="true",
-        )
+        authorization_url, state = flow.authorization_url()
         self._state_cache.issue({"code_verifier": flow.code_verifier}, token=state)
+        
+        logger.info(f"Built Google OAuth redirect URI: {self._settings.google_redirect_uri}")
+        logger.info(f"Final Authorization URL sent to user: {authorization_url}")
+        
         return authorization_url
 
     async def exchange_code(self, *, code: str, state: str) -> AuthResult:
