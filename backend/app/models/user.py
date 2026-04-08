@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, Text, func
+from sqlalchemy import DateTime, String, Text, func, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -17,6 +17,9 @@ class User(Base):
     google_sub: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     email: Mapped[str] = mapped_column(String(320), nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Balance in cents to avoid floating point precision issues
+    balance: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
 
     # OAuth tokens (1:1 with Google account)
     access_token: Mapped[str | None] = mapped_column(Text, nullable=True)
