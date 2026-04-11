@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useRef, useCallback } from 'react'
+import { backendUrl } from '../../../lib/backend'
 
 /* ------------------------------------------------------------------ */
 /*  Types for the WASM editor module                                   */
@@ -17,8 +18,6 @@ interface WasmEditor {
     moveLeft: () => void
     moveRight: () => void
 }
-
-const API_BASE = 'http://localhost:8000'
 
 /* ------------------------------------------------------------------ */
 /*  Special characters for the button bar                              */
@@ -75,7 +74,7 @@ export default function DocumentCreatePage() {
     useEffect(() => {
         async function fetchProjects() {
             try {
-                const res = await fetch(`${API_BASE}/api/projects/`, {
+                const res = await fetch(backendUrl('/api/projects/'), {
                     credentials: 'include',
                 })
                 if (!res.ok) return
@@ -269,7 +268,7 @@ export default function DocumentCreatePage() {
             let docId = documentId
 
             if (!docId) {
-                const createRes = await fetch(`${API_BASE}/api/documents/`, {
+                const createRes = await fetch(backendUrl('/api/documents/'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -280,7 +279,7 @@ export default function DocumentCreatePage() {
                 docId = doc.id
                 setDocumentId(docId)
             } else {
-                const updateRes = await fetch(`${API_BASE}/api/documents/${docId}`, {
+                const updateRes = await fetch(backendUrl(`/api/documents/${docId}`), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',

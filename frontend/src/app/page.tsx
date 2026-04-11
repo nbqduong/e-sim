@@ -1,4 +1,5 @@
 import styles from './page.module.css';
+import { backendUrl } from '../lib/backend';
 
 export default function Home() {
   return (
@@ -13,8 +14,8 @@ export default function Home() {
           <a href="#features" className={styles.navLink}>Features</a>
           <a href="/documents" className={styles.navLink}>Projects</a>
           <a href="#about" className={styles.navLink}>About</a>
-          <a href="http://localhost:8000/auth/google/login" className={styles.navLink}>Log in</a>
-          <a href="http://localhost:8000/auth/google/login" className={styles.primaryBtn} style={{ display: 'inline-block', lineHeight: 'normal' }}>
+          <a href={backendUrl('/auth/google/login')} className={styles.navLink}>Log in</a>
+          <a href={backendUrl('/auth/google/login')} className={styles.primaryBtn} style={{ display: 'inline-block', lineHeight: 'normal' }}>
             Get Started
           </a>
         </div>
@@ -29,7 +30,7 @@ export default function Home() {
           Build, test, and simulate electronic systems right in your browser. Powered by a WASM-based engine for real-time feedback.
         </p>
         <div className={styles.ctaGroup}>
-          <a href="http://localhost:8000/auth/google/login" className={`${styles.primaryBtn} ${styles.largeBtn}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
+          <a href={backendUrl('/auth/google/login')} className={`${styles.primaryBtn} ${styles.largeBtn}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
             Get Started
           </a>
           <a href="#features" className={styles.secondaryBtn}>

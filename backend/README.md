@@ -58,10 +58,20 @@ FastAPI backend for authenticated local project/document management. The current
    docker run --rm -p 8000:8000 --env-file .env e-sim-backend
    ```
 
+## Nginx reverse proxy
+
+For production, the repo includes an Nginx config at `deploy/nginx/backend.conf` that forwards incoming traffic to the backend container on port `8000`.
+
+- `docker-compose.prod.yml` exposes Nginx on port `80`.
+- Set `GOOGLE_REDIRECT_URI` and `FRONTEND_URL` in `.env` to your public HTTPS origin before deploying.
+- Set `SESSION_COOKIE_SECURE=true` when the public site is served over HTTPS.
+
 ## Google Cloud setup
 
 1. Create OAuth 2.0 Client Credentials with type **Web Application**.
-2. Add `http://localhost:8000/auth/google/callback` to the authorized redirect URIs.
+2. Add your callback URL to the authorized redirect URIs.
+   - Local example: `http://localhost:8000/auth/google/callback`
+   - Nginx example: `https://your-domain.example/auth/google/callback`
 3. Store the client ID and client secret in your env file.
 
 ## API workflow

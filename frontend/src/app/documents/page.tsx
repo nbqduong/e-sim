@@ -1,8 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-
-const API_BASE = 'http://localhost:8000'
+import { backendUrl } from '../../lib/backend'
 
 interface Project {
     id: string
@@ -33,7 +32,7 @@ export default function DocumentsPage() {
         if (!confirm(`Delete project "${projectTitle}"? This will permanently remove it and all its documents.`)) return;
         setDeleting(projectId);
         try {
-            const res = await fetch(`${API_BASE}/api/projects/${projectId}`, {
+            const res = await fetch(backendUrl(`/api/projects/${projectId}`), {
                 method: 'DELETE',
                 credentials: 'include',
             });
@@ -52,7 +51,7 @@ export default function DocumentsPage() {
         if (!newTitle.trim()) return
         setCreating(true)
         try {
-            const res = await fetch(`${API_BASE}/api/projects/`, {
+            const res = await fetch(backendUrl('/api/projects/'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -74,7 +73,7 @@ export default function DocumentsPage() {
     useEffect(() => {
         const fetchProjects = async () => {
             try {
-                const response = await fetch(`${API_BASE}/api/projects/`, {
+                const response = await fetch(backendUrl('/api/projects/'), {
                     method: 'GET',
                     credentials: 'include',
                 });
@@ -250,7 +249,7 @@ export default function DocumentsPage() {
                         <h3 style={{ color: 'var(--error)', fontSize: '1.2rem', marginBottom: '0.5rem' }}>Error</h3>
                         <p style={{ color: 'var(--foreground)' }}>{error}</p>
                         {error.includes('authorized') && (
-                            <button onClick={() => window.location.href = 'http://localhost:8000/auth/google/login'}
+                            <button onClick={() => window.location.href = backendUrl('/auth/google/login')}
                                 style={{
                                     marginTop: '1.5rem', padding: '0.75rem 2rem',
                                     background: 'var(--primary)', color: '#000', borderRadius: '8px', fontWeight: '600',
