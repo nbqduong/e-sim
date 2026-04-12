@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse, JSONResponse
 
 from app.api.deps import get_google_oauth_service, get_current_user
@@ -20,10 +20,12 @@ router = APIRouter(tags=["auth"])
 
 @router.get("/google/login")
 async def login_with_google(
+    request: Request,
     oauth_service: GoogleOAuthService = Depends(get_google_oauth_service),
 ):
     try:
-        login_url = oauth_service.build_login_url()
+        callback_url = str(request.url_for("google_callback"))
+        login_url = oauth_service.build_login_url(redirect_uri=callback_url)
     except OAuthConfigurationError as exc:  # pragma: no cover - configuration guard
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
     return RedirectResponse(url=login_url)
@@ -31,20 +33,24 @@ async def login_with_google(
 
 @router.get("/google/callback")
 async def google_callback(
+    request: Request,
     state: str,
     oauth_service: GoogleOAuthService = Depends(get_google_oauth_service),
     code: str | None = None,
     error: str | None = None,
 ) -> RedirectResponse:
-    frontend_url = settings.frontend_url.rstrip("/")
     if error or not code:
-        return RedirectResponse(f"{frontend_url}/demoui/not-authorized")
+        return RedirectResponse("/demoui/not-authorized", status_code=303)
 
     try:
-        auth_result = await oauth_service.exchange_code(code=code, state=state)
+        callback_url = str(request.url_for("google_callback"))
+        auth_result = await oauth_service.exchange_code(
+            code=code,
+            state=state,
+            redirect_uri=callback_url,
+        )
 
-        frontend_url = settings.frontend_url.rstrip("/")
-        response = RedirectResponse(f"{frontend_url}/demoui/home", status_code=303)
+        response = RedirectResponse("/demoui/home", status_code=303)
         
         logger.info(f"Setting cookie session_token={auth_result.session_token[:10]}...")
         
@@ -60,7 +66,7 @@ async def google_callback(
         return response
     except (OAuthStateError, OAuthExchangeError) as exc:
         logger.error(f"OAuth Exchange/State Failed: {repr(exc)}")
-        return RedirectResponse(f"{frontend_url}/demoui/not-authorized")
+        return RedirectResponse("/demoui/not-authorized", status_code=303)
     except OAuthConfigurationError as exc:  # pragma: no cover - configuration guard
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
