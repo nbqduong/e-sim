@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from datetime import datetime, timezone
@@ -37,7 +38,6 @@ class GoogleOAuthService:
         "openid",
         "https://www.googleapis.com/auth/userinfo.email",
         "https://www.googleapis.com/auth/userinfo.profile",
-        "https://www.googleapis.com/auth/drive",
     ]
 
     def __init__(
@@ -53,37 +53,40 @@ class GoogleOAuthService:
         self._session_manager = session_manager
         self._state_cache = state_cache
 
-    def build_login_url(self) -> str:
+    def build_login_url(self, *, redirect_uri: str | None = None) -> str:
         self._ensure_credentials()
-        flow = self._build_flow()
-        authorization_url, state = flow.authorization_url(
-            access_type="offline",
-            include_granted_scopes="true",
-            prompt="consent",
-        )
+        flow = self._build_flow(redirect_uri=redirect_uri)
+        authorization_url, state = flow.authorization_url()
         self._state_cache.issue({"code_verifier": flow.code_verifier}, token=state)
+        
+        logger.info(f"Built Google OAuth redirect URI: {flow.redirect_uri}")
+        logger.info(f"Final Authorization URL sent to user: {authorization_url}")
+        
         return authorization_url
 
-    async def exchange_code(self, *, code: str, state: str) -> AuthResult:
+    async def exchange_code(
+        self,
+        *,
+        code: str,
+        state: str,
+        redirect_uri: str | None = None,
+    ) -> AuthResult:
         self._ensure_credentials()
         state_payload = self._state_cache.get(state)
         if state_payload is None:
             raise OAuthStateError("OAuth state token is invalid or expired")
         self._state_cache.consume(state)
 
-        flow = self._build_flow()
+        flow = self._build_flow(redirect_uri=redirect_uri)
         code_verifier = state_payload.get("code_verifier") if isinstance(state_payload, dict) else None
         try:
-            if code_verifier:
-                flow.fetch_token(code=code, code_verifier=code_verifier)
-            else:
-                flow.fetch_token(code=code)
+            await asyncio.to_thread(self._fetch_credentials, flow, code, code_verifier)
         except Exception as exc:  # pragma: no cover - network interaction
             logger.exception("Google OAuth code exchange failed")
             raise OAuthExchangeError("Unable to exchange authorization code") from exc
 
         credentials = flow.credentials
-        profile = self._extract_profile(credentials.id_token)
+        profile = await asyncio.to_thread(self._extract_profile, credentials.id_token)
 
         # Create or update user in the database
         user = await self._user_repo.get_or_create_by_google_sub(
@@ -109,18 +112,25 @@ class GoogleOAuthService:
             expires_in=expires_in,
         )
 
-    def _build_flow(self) -> Flow:
+    def _fetch_credentials(self, flow: Flow, code: str, code_verifier: str | None) -> None:
+        if code_verifier:
+            flow.fetch_token(code=code, code_verifier=code_verifier)
+        else:
+            flow.fetch_token(code=code)
+
+    def _build_flow(self, *, redirect_uri: str | None = None) -> Flow:
+        effective_redirect_uri = redirect_uri or self._settings.google_redirect_uri
         client_config: dict[str, Any] = {
             "web": {
                 "client_id": self._settings.google_client_id,
                 "client_secret": self._settings.google_client_secret,
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [self._settings.google_redirect_uri],
+                "redirect_uris": [effective_redirect_uri],
             }
         }
         flow = Flow.from_client_config(client_config, scopes=self.SCOPES)
-        flow.redirect_uri = self._settings.google_redirect_uri
+        flow.redirect_uri = effective_redirect_uri
         return flow
 
     def _extract_profile(self, raw_id_token: str | None) -> dict[str, Any]:

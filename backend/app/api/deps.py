@@ -7,11 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.repositories.document_repo import DocumentRepository
 from app.repositories.project_repo import ProjectRepository
 from app.repositories.user_repo import UserRepository
-from app.repositories.task_repo import TaskRepository
-from app.services.google_drive import GoogleDriveService
 from app.services.google_oauth import GoogleOAuthService
 from app.services.session_manager import InvalidSessionError, SessionData, SessionManager
 from app.utils.state_cache import StateCache
@@ -35,14 +32,6 @@ def get_project_repo(db: AsyncSession = Depends(get_db)) -> ProjectRepository:
     return ProjectRepository(db)
 
 
-def get_document_repo(db: AsyncSession = Depends(get_db)) -> DocumentRepository:
-    return DocumentRepository(db)
-
-
-def get_task_repo(db: AsyncSession = Depends(get_db)) -> TaskRepository:
-    return TaskRepository(db)
-
-
 def get_google_oauth_service(
     user_repo: UserRepository = Depends(get_user_repo),
     session_manager: SessionManager = Depends(get_session_manager),
@@ -54,12 +43,6 @@ def get_google_oauth_service(
         session_manager=session_manager,
         state_cache=state_cache,
     )
-
-
-def get_google_drive_service(
-    user_repo: UserRepository = Depends(get_user_repo),
-) -> GoogleDriveService:
-    return GoogleDriveService(settings=settings, user_repo=user_repo)
 
 
 def get_current_user(

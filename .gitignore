@@ -25,3 +25,4 @@ frontend/public/cpp-web*
 
 #plan
 *.plan.md
+.codex
