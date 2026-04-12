@@ -54,7 +54,7 @@ async def google_callback(
             httponly=True,
             max_age=settings.session_ttl_seconds,
             samesite="lax",
-            secure=True,
+            secure=settings.session_cookie_secure,
             path="/"
         )
         return response
