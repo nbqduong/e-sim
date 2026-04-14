@@ -19,7 +19,7 @@ tasks:
     desc: Init submodules and build/run all services
     cmds:
       - task: build_fronted
-      - docker compose up backend --build
+      - docker compose up -d backend --build
       - docker compose up nginx
 
   deploy:

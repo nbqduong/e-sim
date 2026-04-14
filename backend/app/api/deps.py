@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.repositories.project_repo import ProjectRepository
+from app.repositories.ticket_repo import TicketRepository
 from app.repositories.user_repo import UserRepository
 from app.services.google_oauth import GoogleOAuthService
 from app.services.session_manager import InvalidSessionError, SessionData, SessionManager
@@ -30,6 +31,10 @@ def get_user_repo(db: AsyncSession = Depends(get_db)) -> UserRepository:
 
 def get_project_repo(db: AsyncSession = Depends(get_db)) -> ProjectRepository:
     return ProjectRepository(db)
+
+
+def get_ticket_repo(db: AsyncSession = Depends(get_db)) -> TicketRepository:
+    return TicketRepository(db)
 
 
 def get_google_oauth_service(
@@ -56,6 +61,20 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing session token",
         )
+    try:
+        return session_manager.verify(token)
+    except InvalidSessionError as exc:  # pragma: no cover - defensive guard
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+
+
+def get_optional_current_user(
+    x_session_token: str | None = Header(None, alias="X-Session-Token"),
+    session_token: str | None = Cookie(None),
+    session_manager: SessionManager = Depends(get_session_manager),
+) -> SessionData | None:
+    token = x_session_token or session_token
+    if not token:
+        return None
     try:
         return session_manager.verify(token)
     except InvalidSessionError as exc:  # pragma: no cover - defensive guard
