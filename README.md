@@ -18,7 +18,7 @@ To initialize the project and start the application, run the following commands 
 task
 ```
 
-For more information;
+For more information:
 
 ```bash
 task -l
