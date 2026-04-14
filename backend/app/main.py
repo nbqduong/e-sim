@@ -10,12 +10,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import auth, documents, projects, tasks
+from app.api.routes import auth, projects
 from app.core.config import settings
 from app.core.database import engine
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
+logger.setLevel(logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -47,8 +48,6 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/auth")
 app.include_router(projects.router)
-app.include_router(documents.router)
-app.include_router(tasks.router)
 
 
 @app.get("/health")
@@ -59,14 +58,24 @@ async def healthcheck() -> dict[str, str]:
 if settings.frontend_dist_dir:
     frontend_dist = settings.frontend_dist_dir
 else:
-    frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend_output"))
+    frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend__output"))
     if not os.path.isdir(frontend_dist):
         frontend_dist = "/app/frontend/out"
 
+logger.info(f"Resolved frontend_dist: {frontend_dist}")
+logger.info(f"Does frontend_dist exist? {os.path.isdir(frontend_dist)}")
+
 if os.path.isdir(frontend_dist):
-    next_dist = os.path.join(frontend_dist, "_next")
+    next_dist = os.path.join(frontend_dist, "assets")
     if os.path.isdir(next_dist):
-        app.mount("/_next", StaticFiles(directory=next_dist), name="next-static")
+        logger.info(f"Mounting assets from: {next_dist}")
+        app.mount("/assets", StaticFiles(directory=next_dist), name="vite-assets")
+    else:
+        logger.warning(f"Assets directory not found at: {next_dist}")
+        
+    if os.path.isdir(next_dist):
+        logger.info(f"Mounting demoui assets from: {next_dist}")
+        app.mount("/demoui/assets", StaticFiles(directory=next_dist), name="vite-assets-demoui")
     
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
@@ -76,28 +85,41 @@ if os.path.isdir(frontend_dist):
 
         # Normalize the path by removing trailing slash for consistent matching
         full_path = full_path.rstrip("/")
+
+        # Strip the Vite base path prefix if it is present
+        virtual_path = full_path
+        if full_path.startswith("demoui"):
+            virtual_path = full_path[len("demoui"):].lstrip("/")
         
-        file_path = os.path.join(frontend_dist, full_path)
+        file_path = os.path.join(frontend_dist, virtual_path)
+        logger.info(f"Requested static path: '{full_path}' -> Expected file path: {file_path}")
         
         # 1. Check if the exact file exists (like an image or .js file)
-        if full_path and os.path.isfile(file_path):
+        if virtual_path and os.path.isfile(file_path):
+            logger.info(f"Serving exact file: {file_path}")
             return FileResponse(file_path)
         
         # 2. Check if the path corresponds directly to a Next.js HTML output
-        if full_path:
+        if virtual_path:
             html_path = f"{file_path}.html"
             if os.path.isfile(html_path):
+                logger.info(f"Serving HTML file: {html_path}")
                 return FileResponse(html_path)
                 
         # 3. Check if the path targets a directory containing an index.html
         if os.path.isdir(file_path):
             index_path = os.path.join(file_path, "index.html")
             if os.path.isfile(index_path):
+                logger.info(f"Serving directory index: {index_path}")
                 return FileResponse(index_path)
         
         # 4. Fallback to the SPA root index.html if no route matched
         root_index = os.path.join(frontend_dist, "index.html")
         if os.path.isfile(root_index):
+            logger.info(f"Fallback to SPA root: {root_index}")
             return FileResponse(root_index)
         
+        logger.warning(f"Frontend built file not found for path: {full_path}")
         return {"error": "Frontend build not found"}
+else:
+    logger.warning(f"Frontend directory {frontend_dist} does not exist. Frontend serving is disabled.")

@@ -24,13 +24,11 @@ class Settings(BaseSettings):
     google_redirect_uri: str = Field(
         default="http://localhost:8000/auth/google/callback", alias="GOOGLE_REDIRECT_URI"
     )
-    google_drive_parent_id: str | None = Field(default=None, alias="GOOGLE_DRIVE_PARENT_ID")
     frontend_url: str = Field(default="http://localhost:8000", alias="FRONTEND_URL")
     frontend_dist_dir: str = Field(default="", alias="FRONTEND_DIST_DIR")
-    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
 
     cors_allow_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:5173", "http://localhost:8000"],
+        default_factory=lambda: ["http://localhost:5173", "http://localhost:3000", "http://localhost:8000"],
         alias="CORS_ALLOW_ORIGINS",
     )
 
@@ -38,6 +36,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
+        extra = "ignore"
 
     def ensure_data_dir(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)

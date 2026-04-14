@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from datetime import datetime, timezone
@@ -37,7 +38,6 @@ class GoogleOAuthService:
         "openid",
         "https://www.googleapis.com/auth/userinfo.email",
         "https://www.googleapis.com/auth/userinfo.profile",
-        "https://www.googleapis.com/auth/drive",
     ]
 
     def __init__(
@@ -56,12 +56,12 @@ class GoogleOAuthService:
     def build_login_url(self) -> str:
         self._ensure_credentials()
         flow = self._build_flow()
-        authorization_url, state = flow.authorization_url(
-            access_type="offline",
-            include_granted_scopes="true",
-            prompt="consent",
-        )
+        authorization_url, state = flow.authorization_url()
         self._state_cache.issue({"code_verifier": flow.code_verifier}, token=state)
+        
+        logger.info(f"Built Google OAuth redirect URI: {self._settings.google_redirect_uri}")
+        logger.info(f"Final Authorization URL sent to user: {authorization_url}")
+        
         return authorization_url
 
     async def exchange_code(self, *, code: str, state: str) -> AuthResult:
@@ -74,16 +74,13 @@ class GoogleOAuthService:
         flow = self._build_flow()
         code_verifier = state_payload.get("code_verifier") if isinstance(state_payload, dict) else None
         try:
-            if code_verifier:
-                flow.fetch_token(code=code, code_verifier=code_verifier)
-            else:
-                flow.fetch_token(code=code)
+            await asyncio.to_thread(self._fetch_credentials, flow, code, code_verifier)
         except Exception as exc:  # pragma: no cover - network interaction
             logger.exception("Google OAuth code exchange failed")
             raise OAuthExchangeError("Unable to exchange authorization code") from exc
 
         credentials = flow.credentials
-        profile = self._extract_profile(credentials.id_token)
+        profile = await asyncio.to_thread(self._extract_profile, credentials.id_token)
 
         # Create or update user in the database
         user = await self._user_repo.get_or_create_by_google_sub(
@@ -108,6 +105,12 @@ class GoogleOAuthService:
             email=user.email,
             expires_in=expires_in,
         )
+
+    def _fetch_credentials(self, flow: Flow, code: str, code_verifier: str | None) -> None:
+        if code_verifier:
+            flow.fetch_token(code=code, code_verifier=code_verifier)
+        else:
+            flow.fetch_token(code=code)
 
     def _build_flow(self) -> Flow:
         client_config: dict[str, Any] = {
