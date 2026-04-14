@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -84,3 +84,27 @@ class UserRepository:
             user.id_token = id_token
         await self._session.flush()
         return user
+
+    async def add_balance(self, user_id: uuid.UUID, amount_cents: int) -> User | None:
+        stmt = (
+            update(User)
+            .where(User.id == user_id)
+            .values(balance=User.balance + amount_cents)
+            .returning(User)
+        )
+        result = await self._session.execute(stmt)
+        updated_user = result.scalar_one_or_none()
+        await self._session.flush()
+        return updated_user
+        
+    async def deduct_balance(self, user_id: uuid.UUID, amount_cents: int) -> User | None:
+        stmt = (
+            update(User)
+            .where(User.id == user_id, User.balance >= amount_cents)
+            .values(balance=User.balance - amount_cents)
+            .returning(User)
+        )
+        result = await self._session.execute(stmt)
+        updated_user = result.scalar_one_or_none()
+        await self._session.flush()
+        return updated_user
