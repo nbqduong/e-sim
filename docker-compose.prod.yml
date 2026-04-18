@@ -15,10 +15,7 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/esim
       - FRONTEND_DIST_DIR=/home/worker/source/frontend__output/
-    ports:
-      - "8000:8000"
     depends_on:
       postgres:
         condition: service_started
@@ -27,13 +24,11 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_DB: esim
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432" 
     restart: always
 
 volumes:
