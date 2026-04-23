@@ -18,13 +18,37 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["auth"])
 
+
+def _resolve_google_callback_url(request: Request) -> str:
+    request_callback_url = str(request.url_for("google_callback"))
+    configured_callback_url = settings.google_redirect_uri.strip()
+
+    if configured_callback_url:
+        if configured_callback_url != request_callback_url:
+            logger.warning(
+                "Google OAuth callback mismatch: configured=%s request_derived=%s host=%s "
+                "x_forwarded_host=%s x_forwarded_proto=%s",
+                configured_callback_url,
+                request_callback_url,
+                request.headers.get("host"),
+                request.headers.get("x-forwarded-host"),
+                request.headers.get("x-forwarded-proto"),
+            )
+        else:
+            logger.info("Google OAuth callback resolved to %s", configured_callback_url)
+        return configured_callback_url
+
+    logger.info("Google OAuth callback resolved from request to %s", request_callback_url)
+    return request_callback_url
+
+
 @router.get("/google/login")
 async def login_with_google(
     request: Request,
     oauth_service: GoogleOAuthService = Depends(get_google_oauth_service),
 ):
     try:
-        callback_url = str(request.url_for("google_callback"))
+        callback_url = _resolve_google_callback_url(request)
         login_url = oauth_service.build_login_url(redirect_uri=callback_url)
     except OAuthConfigurationError as exc:  # pragma: no cover - configuration guard
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
@@ -43,7 +67,7 @@ async def google_callback(
         return RedirectResponse("/demoui/not-authorized", status_code=303)
 
     try:
-        callback_url = str(request.url_for("google_callback"))
+        callback_url = _resolve_google_callback_url(request)
         auth_result = await oauth_service.exchange_code(
             code=code,
             state=state,

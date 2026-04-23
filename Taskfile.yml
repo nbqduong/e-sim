@@ -42,4 +42,3 @@ tasks:
       - task: build_fronted
       - docker compose run --rm -it --service-ports -v $(pwd)/backend:/home/worker/source backend bash
 
-

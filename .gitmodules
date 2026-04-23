@@ -1,6 +1,7 @@
-[submodule "cpp-web"]
-	path = cpp-web
-	url = https://github.com/nbqduong/cpp-web.git
 [submodule "frontendv1"]
 	path = frontendv1
 	url = https://github.com/nbqduong/esim-frontend.git
+[submodule "cpp-web"]
+	path = cpp-web
+	url = git@github.com:nbqduong/cpp-web.git
+	branch = communicate-with-web

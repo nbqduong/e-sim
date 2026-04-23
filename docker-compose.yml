@@ -23,19 +23,6 @@ services:
     volumes:
       - .:/home/worker/source
 
-  testapp:
-    build:
-      context: ./testapp
-      args:
-        UID: ${UID:-1000}
-        GID: ${GID:-1000}
-    image: e-sim-testapp
-    working_dir: /home/worker/source/testapp
-    environment:
-      - OUT_DIR=/home/worker/source/frontend__input/wasm/
-    volumes:
-      - .:/home/worker/source
-
   frontend:
     build: ./frontendv1
     image: e-sim-frontend
@@ -47,11 +34,9 @@ services:
       - .:/home/node/source
     command: ["sh", "../scripts/build_frontend.sh"]
     depends_on:
-      testapp:
-        condition: service_completed_successfully
       cpp-web:
         condition: service_completed_successfully
-
+        
   backend:
     build:
       context: ./backend
