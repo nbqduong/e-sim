@@ -24,7 +24,6 @@ class Settings(BaseSettings):
     google_redirect_uri: str = Field(
         default="http://localhost:8000/auth/google/callback", alias="GOOGLE_REDIRECT_URI"
     )
-    frontend_url: str = Field(default="http://localhost:8000", alias="FRONTEND_URL")
     frontend_dist_dir: str = Field(default="", alias="FRONTEND_DIST_DIR")
 
     cors_allow_origins: list[str] = Field(

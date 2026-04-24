@@ -63,7 +63,7 @@ FastAPI backend for authenticated local project/document management. The current
 For production, the repo includes an Nginx config at `deploy/nginx/backend.conf` that forwards incoming traffic to the backend container on port `8000`.
 
 - `docker-compose.prod.yml` exposes Nginx on port `80`.
-- Set `GOOGLE_REDIRECT_URI` and `FRONTEND_URL` in `.env` to your public HTTPS origin before deploying.
+- Set `GOOGLE_REDIRECT_URI` in `.env` to your public HTTPS origin before deploying.
 - Set `SESSION_COOKIE_SECURE=true` when the public site is served over HTTPS.
 
 ## Google Cloud setup
@@ -73,6 +73,30 @@ For production, the repo includes an Nginx config at `deploy/nginx/backend.conf`
    - Local example: `http://localhost:8000/auth/google/callback`
    - Nginx example: `https://your-domain.example/auth/google/callback`
 3. Store the client ID and client secret in your env file.
+
+### Storage CORS Configuration
+
+Because the frontend project uploads and downloads files directly from the browser using Signed URLs via the Google Cloud Storage API, your associated GCS bucket must be configured with a proper CORS (Cross-Origin Resource Sharing) policy to prevent blocked requests.
+
+1. Create a file named `cors.json` with the following content. Make sure to adjust the `origin` array to perfectly match your frontend development and production URLs:
+   ```json
+   [
+       {
+           "origin": [
+               "http://localhost:8000",
+               "http://localhost:5173",
+               "https://your-domain.example"
+           ],
+           "method": ["GET", "PUT", "POST", "OPTIONS", "HEAD", "DELETE"],
+           "responseHeader": ["*"],
+           "maxAgeSeconds": 3600
+       }
+   ]
+   ```
+2. Apply this CORS policy to your bucket using the Google Cloud CLI (`gcloud`):
+   ```bash
+   gcloud storage buckets update gs://<YOUR_BUCKET_NAME> --cors-file=cors.json
+   ```
 
 ## API workflow
 
