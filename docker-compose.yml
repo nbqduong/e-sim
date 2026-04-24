@@ -49,8 +49,11 @@ services:
     working_dir: /home/worker/source/
     environment:
       - FRONTEND_DIST_DIR=/home/worker/source/frontend__output/
+      - GOOGLE_APPLICATION_CREDENTIALS=/home/worker/.config/gcloud/application_default_credentials.json
     ports:
       - "127.0.0.1:8000:8000"
+    volumes:
+      - ${HOME}/.config/gcloud:/home/worker/.config/gcloud:ro
     depends_on:
       frontend:
         condition: service_completed_successfully
