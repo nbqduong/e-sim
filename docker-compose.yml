@@ -50,6 +50,7 @@ services:
     environment:
       - FRONTEND_DIST_DIR=/home/worker/source/frontend__output/
       - GOOGLE_APPLICATION_CREDENTIALS=/home/worker/.config/gcloud/application_default_credentials.json
+      - REDIS_URL=redis://redis:6379/0
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
@@ -58,6 +59,8 @@ services:
       frontend:
         condition: service_completed_successfully
       postgres:
+        condition: service_started
+      redis:
         condition: service_started
 
   postgres:
@@ -70,6 +73,12 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    restart: always
 
 volumes:
   pgdata:

@@ -25,6 +25,7 @@ from app.services.blob_storage import (
     create_signed_project_upload,
 )
 from app.services.session_manager import SessionData
+from app.utils.rate_limiter import is_allowed as rate_limit_check
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -73,6 +74,23 @@ async def prepare_project_save_to_drive(
         if existing_project is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
 
+    # Rate limit: max N signed upload URL generations per project per window
+    target_project_id = existing_project.id if existing_project is not None else uuid.uuid4()
+    if not await rate_limit_check(
+        settings.redis_url,
+        str(user_id),
+        str(target_project_id),
+        settings.storage_rate_limit_max_requests,
+        settings.storage_rate_limit_window_seconds,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                f"Rate limit exceeded: max {settings.storage_rate_limit_max_requests} "
+                f"signed URL requests per {settings.storage_rate_limit_window_seconds}s per project."
+            ),
+        )
+
     if (
         existing_project is not None
         and existing_project.content_checksum is not None
@@ -93,7 +111,6 @@ async def prepare_project_save_to_drive(
             project=ProjectResponse.model_validate(project),
         )
 
-    target_project_id = existing_project.id if existing_project is not None else uuid.uuid4()
     try:
         upload_payload = create_signed_project_upload(
             settings,
@@ -193,6 +210,21 @@ async def sync_project(
     )
     download = None
     if needs_download and project.content_uri is not None:
+        # Rate limit: max N signed download URL generations per project per window
+        if not await rate_limit_check(
+            settings.redis_url,
+            str(user_id),
+            str(project_id),
+            settings.storage_rate_limit_max_requests,
+            settings.storage_rate_limit_window_seconds,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    f"Rate limit exceeded: max {settings.storage_rate_limit_max_requests} "
+                    f"signed URL requests per {settings.storage_rate_limit_window_seconds}s per project."
+                ),
+            )
         try:
             download = create_signed_project_download(
                 settings,

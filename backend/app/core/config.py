@@ -30,6 +30,7 @@ class Settings(BaseSettings):
         default_factory=lambda: ["http://localhost:5173", "http://localhost:3000", "http://localhost:8000"],
         alias="CORS_ALLOW_ORIGINS",
     )
+    redis_url: str = Field(default="redis://localhost:6379/0", validation_alias="REDIS_URL")
     gcs_bucket_name: str | None = Field(default=None, validation_alias="GCS_BUCKET_NAME")
     gcs_upload_prefix: str = Field(default="e-sim", validation_alias="GCS_UPLOAD_PREFIX")
     gcs_signing_service_account: str | None = Field(
@@ -43,6 +44,14 @@ class Settings(BaseSettings):
     signed_url_expiration_seconds: int = Field(
         default=900,
         validation_alias="SIGNED_URL_EXPIRATION_SECONDS",
+    )
+    storage_rate_limit_max_requests: int = Field(
+        default=30,
+        validation_alias="STORAGE_RATE_LIMIT_MAX_REQUESTS",
+    )
+    storage_rate_limit_window_seconds: int = Field(
+        default=60,
+        validation_alias="STORAGE_RATE_LIMIT_WINDOW_SECONDS",
     )
 
     class Config:

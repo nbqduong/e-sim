@@ -43,7 +43,10 @@ class ProjectRepository:
         project = Project(**project_kwargs)
         self._session.add(project)
         await self._session.flush()
-        return project
+        hydrated_project = await self.get(user_id=user_id, project_id=project.id)
+        if hydrated_project is None:  # pragma: no cover - defensive guard
+            raise RuntimeError("Created project could not be reloaded")
+        return hydrated_project
 
     async def list_for_user(self, user_id: uuid.UUID) -> list[Project]:
         result = await self._session.execute(
@@ -93,7 +96,10 @@ class ProjectRepository:
         if content_size_bytes is not None:
             project.content_size_bytes = content_size_bytes
         await self._session.flush()
-        return project
+        hydrated_project = await self.get(user_id=user_id, project_id=project.id)
+        if hydrated_project is None:  # pragma: no cover - defensive guard
+            raise RuntimeError("Updated project could not be reloaded")
+        return hydrated_project
 
     async def delete(self, *, user_id: uuid.UUID, project_id: uuid.UUID) -> bool:
         project = await self.get(user_id=user_id, project_id=project_id)

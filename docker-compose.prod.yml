@@ -16,8 +16,11 @@ services:
       - .env
     environment:
       - FRONTEND_DIST_DIR=/home/worker/source/frontend__output/
+      - REDIS_URL=redis://redis:6379/0
     depends_on:
       postgres:
+        condition: service_started
+      redis:
         condition: service_started
     restart: always
 
@@ -29,6 +32,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    image: redis:7-alpine
     restart: always
 
 volumes:
