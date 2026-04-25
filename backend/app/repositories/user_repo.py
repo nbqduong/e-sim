@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.user import User
+from app.models.user import BillingTier, User
 
 DEFAULT_ADMIN_EMAIL = "nbqduong@gmail.com"
 
@@ -44,6 +44,8 @@ class UserRepository:
                 email=email,
                 display_name=display_name,
                 is_admin=should_be_default_admin,
+                billing_tier=BillingTier.FREE.value,
+                project_count=0,
                 access_token=access_token,
                 refresh_token=refresh_token,
                 token_expiry=token_expiry,

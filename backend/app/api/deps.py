@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.repositories.project_repo import ProjectRepository
 from app.repositories.ticket_repo import TicketRepository
 from app.repositories.user_repo import UserRepository
+from app.services.billing_manager import BillingManager
 from app.services.google_oauth import GoogleOAuthService
 from app.services.session_manager import InvalidSessionError, SessionData, SessionManager
 from app.utils.state_cache import StateCache
@@ -23,6 +24,11 @@ def get_session_manager() -> SessionManager:
 @lru_cache(maxsize=1)
 def get_state_cache() -> StateCache:
     return StateCache(ttl_seconds=settings.state_ttl_seconds)
+
+
+@lru_cache(maxsize=1)
+def get_billing_manager() -> BillingManager:
+    return BillingManager(settings=settings)
 
 
 def get_user_repo(db: AsyncSession = Depends(get_db)) -> UserRepository:

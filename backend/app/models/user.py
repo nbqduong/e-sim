@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from enum import StrEnum
 
 from sqlalchemy import Boolean, DateTime, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+
+
+class BillingTier(StrEnum):
+    FREE = "free"
+    PRO = "pro"
 
 
 class User(Base):
@@ -18,6 +24,13 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(320), nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    billing_tier: Mapped[str] = mapped_column(
+        String(32),
+        default=BillingTier.FREE.value,
+        server_default=BillingTier.FREE.value,
+        nullable=False,
+    )
+    project_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
 
     # Balance in cents to avoid floating point precision issues
     balance: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)

@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.project import Project
+from app.models.user import User
 
 
 class ProjectRepository:
@@ -43,6 +44,10 @@ class ProjectRepository:
         project = Project(**project_kwargs)
         self._session.add(project)
         await self._session.flush()
+        user = await self._session.get(User, user_id)
+        if user is not None:
+            user.project_count += 1
+            await self._session.flush()
         hydrated_project = await self.get(user_id=user_id, project_id=project.id)
         if hydrated_project is None:  # pragma: no cover - defensive guard
             raise RuntimeError("Created project could not be reloaded")
@@ -107,4 +112,8 @@ class ProjectRepository:
             return False
         await self._session.delete(project)
         await self._session.flush()
+        user = await self._session.get(User, user_id)
+        if user is not None and user.project_count > 0:
+            user.project_count -= 1
+            await self._session.flush()
         return True

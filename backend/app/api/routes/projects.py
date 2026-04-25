@@ -5,9 +5,10 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.deps import get_current_user, get_project_repo
+from app.api.deps import get_billing_manager, get_current_user, get_project_repo, get_user_repo
 from app.core.config import settings
 from app.repositories.project_repo import ProjectRepository
+from app.repositories.user_repo import UserRepository
 from app.schemas.project import (
     ProjectCreateRequest,
     ProjectListResponse,
@@ -24,6 +25,7 @@ from app.services.blob_storage import (
     create_signed_project_download,
     create_signed_project_upload,
 )
+from app.services.billing_manager import BillingManager, ProjectLimitExceededError
 from app.services.session_manager import SessionData
 from app.utils.rate_limiter import is_allowed as rate_limit_check
 
@@ -49,6 +51,24 @@ def _translate_blob_storage_error(exc: ValueError) -> HTTPException:
     return HTTPException(status_code=status_code, detail=message)
 
 
+async def _enforce_project_creation_limit(
+    *,
+    user_id: uuid.UUID,
+    user_repo: UserRepository,
+    billing_manager: BillingManager,
+) -> None:
+    user = await user_repo.get_by_id(user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    try:
+        billing_manager.ensure_can_create_project(
+            billing_tier=user.billing_tier,
+            project_count=user.project_count,
+        )
+    except ProjectLimitExceededError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
 @router.get("/", response_model=ProjectListResponse)
 async def list_projects(
     current_user: SessionData = Depends(get_current_user),
@@ -65,6 +85,8 @@ async def prepare_project_save_to_drive(
     payload: ProjectSaveToDrivePrepareRequest,
     current_user: SessionData = Depends(get_current_user),
     project_repo: ProjectRepository = Depends(get_project_repo),
+    user_repo: UserRepository = Depends(get_user_repo),
+    billing_manager: BillingManager = Depends(get_billing_manager),
 ) -> ProjectSaveToDrivePrepareResponse:
     user_id = _current_user_id(current_user)
     existing_project = None
@@ -73,6 +95,12 @@ async def prepare_project_save_to_drive(
         existing_project = await project_repo.get(user_id=user_id, project_id=payload.project_id)
         if existing_project is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    else:
+        await _enforce_project_creation_limit(
+            user_id=user_id,
+            user_repo=user_repo,
+            billing_manager=billing_manager,
+        )
 
     # Rate limit: max N signed upload URL generations per project per window
     target_project_id = existing_project.id if existing_project is not None else uuid.uuid4()
@@ -134,6 +162,8 @@ async def complete_project_save_to_drive(
     payload: ProjectSaveToDriveCompleteRequest,
     current_user: SessionData = Depends(get_current_user),
     project_repo: ProjectRepository = Depends(get_project_repo),
+    user_repo: UserRepository = Depends(get_user_repo),
+    billing_manager: BillingManager = Depends(get_billing_manager),
 ) -> ProjectResponse:
     user_id = _current_user_id(current_user)
     try:
@@ -148,6 +178,11 @@ async def complete_project_save_to_drive(
     existing_project = await project_repo.get(user_id=user_id, project_id=payload.project_id)
 
     if existing_project is None:
+        await _enforce_project_creation_limit(
+            user_id=user_id,
+            user_repo=user_repo,
+            billing_manager=billing_manager,
+        )
         project = await project_repo.create(
             project_id=payload.project_id,
             user_id=user_id,
@@ -245,7 +280,14 @@ async def create_project(
     payload: ProjectCreateRequest,
     current_user: SessionData = Depends(get_current_user),
     project_repo: ProjectRepository = Depends(get_project_repo),
+    user_repo: UserRepository = Depends(get_user_repo),
+    billing_manager: BillingManager = Depends(get_billing_manager),
 ) -> ProjectResponse:
+    await _enforce_project_creation_limit(
+        user_id=_current_user_id(current_user),
+        user_repo=user_repo,
+        billing_manager=billing_manager,
+    )
     project = await project_repo.create(
         user_id=_current_user_id(current_user),
         title=payload.title,

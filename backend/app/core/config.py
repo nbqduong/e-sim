@@ -53,6 +53,14 @@ class Settings(BaseSettings):
         default=60,
         validation_alias="STORAGE_RATE_LIMIT_WINDOW_SECONDS",
     )
+    billing_free_max_projects: int = Field(
+        default=3,
+        validation_alias="BILLING_FREE_MAX_PROJECTS",
+    )
+    billing_pro_max_projects: int = Field(
+        default=25,
+        validation_alias="BILLING_PRO_MAX_PROJECTS",
+    )
 
     class Config:
         env_file = ".env"
