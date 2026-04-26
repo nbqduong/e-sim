@@ -23,6 +23,15 @@ services:
     volumes:
       - .:/home/worker/source
 
+  simulator:
+    build:
+      context: ./simulator
+    image: e-sim-simulator
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    command: ["sh", "/workspace/simulator/build.sh"]
+
   frontend:
     build: ./frontendv1
     image: e-sim-frontend
@@ -35,6 +44,8 @@ services:
     command: ["sh", "../scripts/build_frontend.sh"]
     depends_on:
       cpp-web:
+        condition: service_completed_successfully
+      simulator:
         condition: service_completed_successfully
         
   backend:

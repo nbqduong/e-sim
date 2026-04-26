@@ -9,16 +9,16 @@ tasks:
     cmds:
       - task: local
 
-  build_fronted:
+  build_frontend:
     desc: Build frontend only
     cmds:
-      - git submodule update --init
+      - #git submodule update --init
       - docker compose up frontend --build
 
   local:
     desc: Init submodules and build/run all services
     cmds:
-      - task: build_fronted
+      - task: build_frontend
       - docker compose up -d backend --build
       - docker compose up nginx
 
@@ -39,6 +39,6 @@ tasks:
   launch_backend_dev:
     desc: Serve backend only (for development)
     cmds:
-      - task: build_fronted
+      - task: build_frontend
       - docker compose run --rm -it --service-ports -v $(pwd)/backend:/home/worker/source backend bash
 
