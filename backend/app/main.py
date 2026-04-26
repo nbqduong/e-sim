@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import auth, projects, users
+from app.api.routes import auth, legal, projects, tickets, users
 from app.core.config import settings
 from app.core.database import engine
 
@@ -47,7 +47,9 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/auth")
+app.include_router(legal.router)
 app.include_router(projects.router)
+app.include_router(tickets.router)
 app.include_router(users.router)
 
 

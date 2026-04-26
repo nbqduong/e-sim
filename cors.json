@@ -1,0 +1,22 @@
+[
+    {
+        "origin": [
+            "http://localhost:8000",
+            "http://localhost:5173",
+            "http://localhost",
+            "https://elisha-unplunderous-thoroughgoingly.ngrok-free.dev"
+        ],
+        "method": [
+            "GET",
+            "PUT",
+            "POST",
+            "OPTIONS",
+            "HEAD",
+            "DELETE"
+        ],
+        "responseHeader": [
+            "*"
+        ],
+        "maxAgeSeconds": 3600
+    }
+]

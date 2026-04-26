@@ -6,7 +6,9 @@ from datetime import datetime
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.user import User
+from app.models.user import BillingTier, User
+
+DEFAULT_ADMIN_EMAIL = "nbqduong@gmail.com"
 
 
 class UserRepository:
@@ -35,11 +37,15 @@ class UserRepository:
         id_token: str | None = None,
     ) -> User:
         user = await self.get_by_google_sub(google_sub)
+        should_be_default_admin = email.strip().lower() == DEFAULT_ADMIN_EMAIL
         if user is None:
             user = User(
                 google_sub=google_sub,
                 email=email,
                 display_name=display_name,
+                is_admin=should_be_default_admin,
+                billing_tier=BillingTier.FREE.value,
+                project_count=0,
                 access_token=access_token,
                 refresh_token=refresh_token,
                 token_expiry=token_expiry,
@@ -50,6 +56,7 @@ class UserRepository:
         else:
             # Update tokens on every login
             user.email = email
+            user.is_admin = user.is_admin or should_be_default_admin
             if display_name:
                 user.display_name = display_name
             user.access_token = access_token

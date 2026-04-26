@@ -23,18 +23,14 @@ services:
     volumes:
       - .:/home/worker/source
 
-  testapp:
+  simulator:
     build:
-      context: ./testapp
-      args:
-        UID: ${UID:-1000}
-        GID: ${GID:-1000}
-    image: e-sim-testapp
-    working_dir: /home/worker/source/testapp
-    environment:
-      - OUT_DIR=/home/worker/source/frontend__input/wasm/
+      context: ./simulator
+    image: e-sim-simulator
+    working_dir: /workspace
     volumes:
-      - .:/home/worker/source
+      - .:/workspace
+    command: ["sh", "/workspace/simulator/build.sh"]
 
   frontend:
     build: ./frontendv1
@@ -47,11 +43,11 @@ services:
       - .:/home/node/source
     command: ["sh", "../scripts/build_frontend.sh"]
     depends_on:
-      testapp:
-        condition: service_completed_successfully
       cpp-web:
         condition: service_completed_successfully
-
+      simulator:
+        condition: service_completed_successfully
+        
   backend:
     build:
       context: ./backend
@@ -63,26 +59,37 @@ services:
     image: e-sim-backend
     working_dir: /home/worker/source/
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/esim
       - FRONTEND_DIST_DIR=/home/worker/source/frontend__output/
+      - GOOGLE_APPLICATION_CREDENTIALS=/home/worker/.config/gcloud/application_default_credentials.json
+      - REDIS_URL=redis://redis:6379/0
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ${HOME}/.config/gcloud:/home/worker/.config/gcloud:ro
     depends_on:
       frontend:
         condition: service_completed_successfully
       postgres:
         condition: service_started
+      redis:
+        condition: service_started
 
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_DB: esim
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    restart: always
 
 volumes:
   pgdata:
