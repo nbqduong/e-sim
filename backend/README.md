@@ -11,7 +11,7 @@ FastAPI backend for authenticated local project/document management. The current
 
 - **Google login** - issues short-lived OAuth state, exchanges auth codes, and sets a signed session cookie.
 - **Project and document CRUD** - stores per-user content in Postgres through SQLAlchemy + Alembic.
-- **Single-process API** - no Redis or Celery required for the current feature set.
+- **Redis-backed auth state** - Google OAuth state tokens are shared across instances for multi-node deployments.
 - **Container-ready** - env-file driven configuration plus a Docker image for local and production deployment.
 
 ## Project structure
@@ -40,7 +40,7 @@ FastAPI backend for authenticated local project/document management. The current
 
    ```bash
    cp .env.example .env
-   # fill in GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET, DATABASE_URL, etc.
+   # fill in GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET, DATABASE_URL, REDIS_URL, etc.
    ```
 
 3. **Run the API**
@@ -108,5 +108,6 @@ Because the frontend project uploads and downloads files directly from the brows
 ## Notes
 
 - Persisted data lives in the database configured by `DATABASE_URL`; run Alembic migrations before first launch.
+- Redis is required for shared OAuth state and rate limiting; set `REDIS_URL` for local and production environments.
 - The API is CORS-enabled for localhost frontends by default. Adjust `CORS_ALLOW_ORIGINS` as needed.
 - Historical Drive/task migrations remain in the repo for compatibility, but the runtime no longer depends on that stack.

@@ -16,7 +16,7 @@ class SessionData(BaseModel):
 class SessionManager:
     def __init__(self, *, secret: str, ttl_seconds: int) -> None:
         self._serializer = URLSafeTimedSerializer(secret_key=secret, salt="session-token")
-        self._ttl_seconds = ttl_seconds
+        self._ttl_seconds = ttl_seconds                                                
 
     def issue(self, user_id: str, email: str) -> str:
         payload = SessionData(user_id=user_id, email=email)

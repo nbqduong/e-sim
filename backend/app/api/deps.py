@@ -23,7 +23,10 @@ def get_session_manager() -> SessionManager:
 
 @lru_cache(maxsize=1)
 def get_state_cache() -> StateCache:
-    return StateCache(ttl_seconds=settings.state_ttl_seconds)
+    return StateCache(
+        redis_url=settings.redis_url,
+        ttl_seconds=settings.state_ttl_seconds,
+    )
 
 
 @lru_cache(maxsize=1)

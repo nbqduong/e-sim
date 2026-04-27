@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api.deps import get_state_cache
 from app.api.routes import auth, legal, projects, tickets, users
 from app.core.config import settings
 from app.core.database import engine
@@ -28,6 +29,9 @@ async def lifespan(app: FastAPI):
             await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
         logger.info("Database connection verified")
     yield
+    if get_state_cache.cache_info().currsize:
+        await get_state_cache().close()
+        get_state_cache.cache_clear()
     if engine:
         await engine.dispose()
 

@@ -49,7 +49,7 @@ async def login_with_google(
 ):
     try:
         callback_url = _resolve_google_callback_url(request)
-        login_url = oauth_service.build_login_url(redirect_uri=callback_url)
+        login_url = await oauth_service.build_login_url(redirect_uri=callback_url)
     except OAuthConfigurationError as exc:  # pragma: no cover - configuration guard
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
     return RedirectResponse(url=login_url)
