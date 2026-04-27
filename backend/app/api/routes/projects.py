@@ -13,9 +13,9 @@ from app.schemas.project import (
     ProjectCreateRequest,
     ProjectListResponse,
     ProjectResponse,
-    ProjectSaveToDriveCompleteRequest,
-    ProjectSaveToDrivePrepareRequest,
-    ProjectSaveToDrivePrepareResponse,
+    ProjectSaveToCloudCompleteRequest,
+    ProjectSaveToCloudPrepareRequest,
+    ProjectSaveToCloudPrepareResponse,
     ProjectSyncRequest,
     ProjectSyncResponse,
     ProjectUpdateRequest,
@@ -80,14 +80,14 @@ async def list_projects(
     )
 
 
-@router.post("/save-to-drive/prepare", response_model=ProjectSaveToDrivePrepareResponse)
-async def prepare_project_save_to_drive(
-    payload: ProjectSaveToDrivePrepareRequest,
+@router.post("/save-to-cloud/prepare", response_model=ProjectSaveToCloudPrepareResponse)
+async def prepare_project_save_to_cloud(
+    payload: ProjectSaveToCloudPrepareRequest,
     current_user: SessionData = Depends(get_current_user),
     project_repo: ProjectRepository = Depends(get_project_repo),
     user_repo: UserRepository = Depends(get_user_repo),
     billing_manager: BillingManager = Depends(get_billing_manager),
-) -> ProjectSaveToDrivePrepareResponse:
+) -> ProjectSaveToCloudPrepareResponse:
     user_id = _current_user_id(current_user)
     existing_project = None
 
@@ -133,7 +133,7 @@ async def prepare_project_save_to_drive(
         )
         if project is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-        return ProjectSaveToDrivePrepareResponse(
+        return ProjectSaveToCloudPrepareResponse(
             project_id=project.id,
             needs_upload=False,
             project=ProjectResponse.model_validate(project),
@@ -149,7 +149,7 @@ async def prepare_project_save_to_drive(
         )
     except ValueError as exc:
         raise _translate_blob_storage_error(exc)
-    return ProjectSaveToDrivePrepareResponse(
+    return ProjectSaveToCloudPrepareResponse(
         project_id=target_project_id,
         needs_upload=True,
         project=ProjectResponse.model_validate(existing_project) if existing_project is not None else None,
@@ -157,9 +157,9 @@ async def prepare_project_save_to_drive(
     )
 
 
-@router.post("/save-to-drive/complete", response_model=ProjectResponse)
-async def complete_project_save_to_drive(
-    payload: ProjectSaveToDriveCompleteRequest,
+@router.post("/save-to-cloud/complete", response_model=ProjectResponse)
+async def complete_project_save_to_cloud(
+    payload: ProjectSaveToCloudCompleteRequest,
     current_user: SessionData = Depends(get_current_user),
     project_repo: ProjectRepository = Depends(get_project_repo),
     user_repo: UserRepository = Depends(get_user_repo),
@@ -294,24 +294,6 @@ async def create_project(
         description=payload.description,
         metadata_json=payload.metadata_json,
     )
-    return ProjectResponse.model_validate(project)
-
-
-@router.put("/{project_id}", response_model=ProjectResponse)
-async def update_project(
-    project_id: uuid.UUID,
-    payload: ProjectUpdateRequest,
-    current_user: SessionData = Depends(get_current_user),
-    project_repo: ProjectRepository = Depends(get_project_repo),
-) -> ProjectResponse:
-    update_data = payload.model_dump(exclude_unset=True)
-    project = await project_repo.update(
-        project_id=project_id,
-        user_id=_current_user_id(current_user),
-        **update_data,
-    )
-    if project is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     return ProjectResponse.model_validate(project)
 
 

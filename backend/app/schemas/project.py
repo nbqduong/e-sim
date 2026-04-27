@@ -60,7 +60,7 @@ class SignedProjectDownloadResponse(BaseModel):
     download_url: str
 
 
-class ProjectSaveToDrivePrepareRequest(BaseModel):
+class ProjectSaveToCloudPrepareRequest(BaseModel):
     project_id: UUID | None = None
     title: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=2000)
@@ -70,14 +70,14 @@ class ProjectSaveToDrivePrepareRequest(BaseModel):
     content_type: str = Field(min_length=1, max_length=255)
 
 
-class ProjectSaveToDrivePrepareResponse(BaseModel):
+class ProjectSaveToCloudPrepareResponse(BaseModel):
     project_id: UUID
     needs_upload: bool
     project: ProjectResponse | None = None
     upload: SignedProjectUploadResponse | None = None
 
 
-class ProjectSaveToDriveCompleteRequest(BaseModel):
+class ProjectSaveToCloudCompleteRequest(BaseModel):
     project_id: UUID
     title: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=2000)
