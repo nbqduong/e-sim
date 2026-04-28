@@ -53,6 +53,14 @@ class Settings(BaseSettings):
         default=60,
         validation_alias="STORAGE_RATE_LIMIT_WINDOW_SECONDS",
     )
+    project_create_rate_limit_max_requests: int = Field(
+        default=10,
+        validation_alias="PROJECT_CREATE_RATE_LIMIT_MAX_REQUESTS",
+    )
+    project_create_rate_limit_window_seconds: int = Field(
+        default=60,
+        validation_alias="PROJECT_CREATE_RATE_LIMIT_WINDOW_SECONDS",
+    )
     billing_free_max_projects: int = Field(
         default=3,
         validation_alias="BILLING_FREE_MAX_PROJECTS",

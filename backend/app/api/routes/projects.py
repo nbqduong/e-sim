@@ -69,6 +69,24 @@ async def _enforce_project_creation_limit(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
+async def _enforce_project_creation_rate_limit(user_id: uuid.UUID) -> None:
+    if not await rate_limit_check(
+        settings.redis_url,
+        str(user_id),
+        "create",
+        settings.project_create_rate_limit_max_requests,
+        settings.project_create_rate_limit_window_seconds,
+        namespace="project_create",
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                f"Rate limit exceeded: max {settings.project_create_rate_limit_max_requests} "
+                f"project creations per {settings.project_create_rate_limit_window_seconds}s."
+            ),
+        )
+
+
 @router.get("/", response_model=ProjectListResponse)
 async def list_projects(
     current_user: SessionData = Depends(get_current_user),
@@ -178,6 +196,7 @@ async def complete_project_save_to_cloud(
     existing_project = await project_repo.get(user_id=user_id, project_id=payload.project_id)
 
     if existing_project is None:
+        await _enforce_project_creation_rate_limit(user_id)
         await _enforce_project_creation_limit(
             user_id=user_id,
             user_repo=user_repo,
@@ -283,13 +302,15 @@ async def create_project(
     user_repo: UserRepository = Depends(get_user_repo),
     billing_manager: BillingManager = Depends(get_billing_manager),
 ) -> ProjectResponse:
+    user_id = _current_user_id(current_user)
+    await _enforce_project_creation_rate_limit(user_id)
     await _enforce_project_creation_limit(
-        user_id=_current_user_id(current_user),
+        user_id=user_id,
         user_repo=user_repo,
         billing_manager=billing_manager,
     )
     project = await project_repo.create(
-        user_id=_current_user_id(current_user),
+        user_id=user_id,
         title=payload.title,
         description=payload.description,
         metadata_json=payload.metadata_json,
