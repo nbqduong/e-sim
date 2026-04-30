@@ -15,7 +15,8 @@ import google.auth
 from google.auth import exceptions as auth_exceptions
 from google.auth import iam
 from google.auth.credentials import Credentials
-from google.auth.transport.requests import Request
+from google.auth.transport.requests import AuthorizedSession, Request
+from requests import RequestException
 
 from app.core.config import Settings
 
@@ -74,8 +75,22 @@ def build_project_object_name(
     user_id: uuid.UUID,
     project_id: uuid.UUID,
 ) -> str:
+    prefix = build_project_object_prefix(
+        settings,
+        user_id=user_id,
+        project_id=project_id,
+    )
+    return f"{prefix}/{PROJECT_OBJECT_SUFFIX}"
+
+
+def build_project_object_prefix(
+    settings: Settings,
+    *,
+    user_id: uuid.UUID,
+    project_id: uuid.UUID,
+) -> str:
     prefix = normalize_prefix(settings.gcs_upload_prefix)
-    object_parts = [str(user_id), "project", str(project_id), PROJECT_OBJECT_SUFFIX]
+    object_parts = [str(user_id), "project", str(project_id)]
     if prefix:
         object_parts.insert(0, prefix)
     return "/".join(object_parts)
@@ -329,3 +344,77 @@ def create_signed_project_download(
         "storage_uri": f"gs://{settings.gcs_bucket_name}/{object_name}",
         "download_url": download_url,
     }
+
+
+def delete_project_prefix(
+    settings: Settings,
+    *,
+    user_id: uuid.UUID,
+    project_id: uuid.UUID,
+) -> None:
+    """Delete every object stored under a project's GCS prefix."""
+    validate_signing_settings(settings)
+    object_prefix = build_project_object_prefix(
+        settings,
+        user_id=user_id,
+        project_id=project_id,
+    ).rstrip("/") + "/"
+    try:
+        credentials = get_google_credentials()
+    except auth_exceptions.DefaultCredentialsError as exc:
+        raise ValueError(
+            "No Google Cloud Application Default Credentials were found. "
+            "Run `gcloud auth application-default login` on the host machine "
+            "or provide service account credentials."
+        ) from exc
+
+    authed_session = AuthorizedSession(credentials)
+    try:
+        next_page_token: str | None = None
+        bucket_name = quote(settings.gcs_bucket_name or "", safe="")
+
+        while True:
+            list_url = (
+                f"https://{STORAGE_API_HOST}/storage/v1/b/{bucket_name}/o"
+                f"?prefix={quote(object_prefix, safe='')}"
+            )
+            if next_page_token:
+                list_url += f"&pageToken={quote(next_page_token, safe='')}"
+
+            list_response = authed_session.get(list_url, timeout=30)
+            if list_response.status_code != 200:
+                raise ValueError(
+                    "Unable to list project content in GCS. "
+                    "Google Cloud Storage returned "
+                    f"{list_response.status_code}: {list_response.text}"
+                )
+
+            payload = list_response.json()
+            items = payload.get("items", [])
+            for item in items:
+                object_name = item.get("name")
+                if not object_name:
+                    continue
+                delete_response = authed_session.delete(
+                    f"https://{STORAGE_API_HOST}/storage/v1/b/{bucket_name}/o/"
+                    f"{quote(object_name, safe='')}",
+                    timeout=30,
+                )
+                if delete_response.status_code not in (204, 404):
+                    raise ValueError(
+                        "Unable to delete project content from GCS. "
+                        "Google Cloud Storage returned "
+                        f"{delete_response.status_code}: {delete_response.text}"
+                    )
+
+            next_page_token = payload.get("nextPageToken")
+            if not next_page_token:
+                break
+    except (auth_exceptions.GoogleAuthError, RequestException) as exc:
+        formatted_error = format_google_auth_error(exc)
+        raise ValueError(
+            "Unable to delete project storage from GCS. "
+            f"Google Cloud Storage returned: {formatted_error}."
+        ) from exc
+    finally:
+        authed_session.close()

@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import get_billing_manager, get_current_user, get_project_repo, get_user_repo
 from app.core.config import settings
@@ -24,6 +25,7 @@ from app.services.blob_storage import (
     build_project_storage_uri,
     create_signed_project_download,
     create_signed_project_upload,
+    delete_project_prefix,
 )
 from app.services.billing_manager import BillingManager, ProjectLimitExceededError
 from app.services.session_manager import SessionData
@@ -324,8 +326,21 @@ async def delete_project(
     current_user: SessionData = Depends(get_current_user),
     project_repo: ProjectRepository = Depends(get_project_repo),
 ) -> None:
-    deleted = await project_repo.delete(
-        project_id=project_id, user_id=_current_user_id(current_user)
-    )
-    if not deleted:
+    user_id = _current_user_id(current_user)
+    project = await project_repo.get(project_id=project_id, user_id=user_id)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    try:
+        await run_in_threadpool(
+            delete_project_prefix,
+            settings,
+            user_id=user_id,
+            project_id=project_id,
+        )
+    except ValueError as exc:
+        raise _translate_blob_storage_error(exc)
+
+    deleted = await project_repo.delete(project_id=project_id, user_id=user_id)
+    if not deleted:  # pragma: no cover - defensive guard
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
