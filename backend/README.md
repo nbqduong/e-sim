@@ -109,5 +109,6 @@ Because the frontend project uploads and downloads files directly from the brows
 
 - Persisted data lives in the database configured by `DATABASE_URL`; run Alembic migrations before first launch.
 - Redis is required for shared OAuth state and rate limiting; set `REDIS_URL` for local and production environments.
+- A global Redis-backed request limit now protects the app by client IP. Tune it with `GLOBAL_RATE_LIMIT_ENABLED`, `GLOBAL_RATE_LIMIT_MAX_REQUESTS`, `GLOBAL_RATE_LIMIT_WINDOW_SECONDS`, and `GLOBAL_RATE_LIMIT_FAIL_OPEN`.
 - The API is CORS-enabled for localhost frontends by default. Adjust `CORS_ALLOW_ORIGINS` as needed.
 - Historical Drive/task migrations remain in the repo for compatibility, but the runtime no longer depends on that stack.

@@ -61,6 +61,22 @@ class Settings(BaseSettings):
         default=60,
         validation_alias="PROJECT_CREATE_RATE_LIMIT_WINDOW_SECONDS",
     )
+    global_rate_limit_enabled: bool = Field(
+        default=True,
+        validation_alias="GLOBAL_RATE_LIMIT_ENABLED",
+    )
+    global_rate_limit_max_requests: int = Field(
+        default=120,
+        validation_alias="GLOBAL_RATE_LIMIT_MAX_REQUESTS",
+    )
+    global_rate_limit_window_seconds: int = Field(
+        default=60,
+        validation_alias="GLOBAL_RATE_LIMIT_WINDOW_SECONDS",
+    )
+    global_rate_limit_fail_open: bool = Field(
+        default=True,
+        validation_alias="GLOBAL_RATE_LIMIT_FAIL_OPEN",
+    )
     billing_free_max_projects: int = Field(
         default=3,
         validation_alias="BILLING_FREE_MAX_PROJECTS",
