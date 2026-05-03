@@ -8,6 +8,7 @@ __pycache__/
 venv/
 .venv/
 .pytest_cache/
+*.vscode*
 
 # UI / Frontend
 frontend/node_modules/

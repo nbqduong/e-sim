@@ -11,7 +11,7 @@ FastAPI backend for authenticated local project/document management. The current
 
 - **Google login** - issues short-lived OAuth state, exchanges auth codes, and sets a signed session cookie.
 - **Project and document CRUD** - stores per-user content in Postgres through SQLAlchemy + Alembic.
-- **Single-process API** - no Redis or Celery required for the current feature set.
+- **Redis-backed auth state** - Google OAuth state tokens are shared across instances for multi-node deployments.
 - **Container-ready** - env-file driven configuration plus a Docker image for local and production deployment.
 
 ## Project structure
@@ -40,7 +40,7 @@ FastAPI backend for authenticated local project/document management. The current
 
    ```bash
    cp .env.example .env
-   # fill in GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET, DATABASE_URL, etc.
+   # fill in GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET, DATABASE_URL, REDIS_URL, etc.
    ```
 
 3. **Run the API**
@@ -63,7 +63,7 @@ FastAPI backend for authenticated local project/document management. The current
 For production, the repo includes an Nginx config at `deploy/nginx/backend.conf` that forwards incoming traffic to the backend container on port `8000`.
 
 - `docker-compose.prod.yml` exposes Nginx on port `80`.
-- Set `GOOGLE_REDIRECT_URI` and `FRONTEND_URL` in `.env` to your public HTTPS origin before deploying.
+- Set `GOOGLE_REDIRECT_URI` in `.env` to your public HTTPS origin before deploying.
 - Set `SESSION_COOKIE_SECURE=true` when the public site is served over HTTPS.
 
 ## Google Cloud setup
@@ -73,6 +73,30 @@ For production, the repo includes an Nginx config at `deploy/nginx/backend.conf`
    - Local example: `http://localhost:8000/auth/google/callback`
    - Nginx example: `https://your-domain.example/auth/google/callback`
 3. Store the client ID and client secret in your env file.
+
+### Storage CORS Configuration
+
+Because the frontend project uploads and downloads files directly from the browser using Signed URLs via the Google Cloud Storage API, your associated GCS bucket must be configured with a proper CORS (Cross-Origin Resource Sharing) policy to prevent blocked requests.
+
+1. Create a file named `cors.json` with the following content. Make sure to adjust the `origin` array to perfectly match your frontend development and production URLs:
+   ```json
+   [
+       {
+           "origin": [
+               "http://localhost:8000",
+               "http://localhost:5173",
+               "https://your-domain.example"
+           ],
+           "method": ["GET", "PUT", "POST", "OPTIONS", "HEAD", "DELETE"],
+           "responseHeader": ["*"],
+           "maxAgeSeconds": 3600
+       }
+   ]
+   ```
+2. Apply this CORS policy to your bucket using the Google Cloud CLI (`gcloud`):
+   ```bash
+   gcloud storage buckets update gs://<YOUR_BUCKET_NAME> --cors-file=cors.json
+   ```
 
 ## API workflow
 
@@ -84,5 +108,7 @@ For production, the repo includes an Nginx config at `deploy/nginx/backend.conf`
 ## Notes
 
 - Persisted data lives in the database configured by `DATABASE_URL`; run Alembic migrations before first launch.
+- Redis is required for shared OAuth state and rate limiting; set `REDIS_URL` for local and production environments.
+- A global Redis-backed request limit now protects the app by client IP. Tune it with `GLOBAL_RATE_LIMIT_ENABLED`, `GLOBAL_RATE_LIMIT_MAX_REQUESTS`, `GLOBAL_RATE_LIMIT_WINDOW_SECONDS`, and `GLOBAL_RATE_LIMIT_FAIL_OPEN`.
 - The API is CORS-enabled for localhost frontends by default. Adjust `CORS_ALLOW_ORIGINS` as needed.
 - Historical Drive/task migrations remain in the repo for compatibility, but the runtime no longer depends on that stack.

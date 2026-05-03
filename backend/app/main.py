@@ -10,13 +10,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import auth, projects, users
+from app.api.deps import get_state_cache
+from app.api.routes import auth, legal, projects, tickets, users
 from app.core.config import settings
 from app.core.database import engine
+from app.utils.rate_limiter import GlobalRateLimitMiddleware, RedisSlidingWindowRateLimiter
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+global_rate_limiter = RedisSlidingWindowRateLimiter(settings.redis_url)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,6 +32,10 @@ async def lifespan(app: FastAPI):
             await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
         logger.info("Database connection verified")
     yield
+    if get_state_cache.cache_info().currsize:
+        await get_state_cache().close()
+        get_state_cache.cache_clear()
+    await global_rate_limiter.close()
     if engine:
         await engine.dispose()
 
@@ -39,15 +47,34 @@ app = FastAPI(
 )
 
 app.add_middleware(
+    GlobalRateLimitMiddleware,
+    limiter=global_rate_limiter,
+    enabled=settings.global_rate_limit_enabled,
+    max_requests=settings.global_rate_limit_max_requests,
+    window_seconds=settings.global_rate_limit_window_seconds,
+    fail_open=settings.global_rate_limit_fail_open,
+    exempt_path_prefixes=("/health",),
+    trust_proxy_headers=True,
+)
+
+app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_allow_origins,
     allow_methods=["*"],
     allow_headers=["*"],
     allow_credentials=True,
+    expose_headers=[
+        "Retry-After",
+        "X-RateLimit-Limit",
+        "X-RateLimit-Remaining",
+        "X-RateLimit-Reset",
+    ],
 )
 
 app.include_router(auth.router, prefix="/auth")
+app.include_router(legal.router)
 app.include_router(projects.router)
+app.include_router(tickets.router)
 app.include_router(users.router)
 
 

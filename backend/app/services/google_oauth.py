@@ -53,11 +53,11 @@ class GoogleOAuthService:
         self._session_manager = session_manager
         self._state_cache = state_cache
 
-    def build_login_url(self, *, redirect_uri: str | None = None) -> str:
+    async def build_login_url(self, *, redirect_uri: str | None = None) -> str:
         self._ensure_credentials()
         flow = self._build_flow(redirect_uri=redirect_uri)
         authorization_url, state = flow.authorization_url()
-        self._state_cache.issue({"code_verifier": flow.code_verifier}, token=state)
+        await self._state_cache.issue({"code_verifier": flow.code_verifier}, token=state)
         
         logger.info(f"Built Google OAuth redirect URI: {flow.redirect_uri}")
         logger.info(f"Final Authorization URL sent to user: {authorization_url}")
@@ -72,10 +72,9 @@ class GoogleOAuthService:
         redirect_uri: str | None = None,
     ) -> AuthResult:
         self._ensure_credentials()
-        state_payload = self._state_cache.get(state)
+        state_payload = await self._state_cache.consume_payload(state)
         if state_payload is None:
             raise OAuthStateError("OAuth state token is invalid or expired")
-        self._state_cache.consume(state)
 
         flow = self._build_flow(redirect_uri=redirect_uri)
         code_verifier = state_payload.get("code_verifier") if isinstance(state_payload, dict) else None

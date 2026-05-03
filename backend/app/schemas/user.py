@@ -8,6 +8,9 @@ class UserProfileResponse(BaseModel):
     id: UUID
     email: str
     display_name: str | None
+    is_admin: bool
+    billing_tier: str
+    project_count: int
     balance_cents: int = Field(alias="balance")
 
     model_config = {"from_attributes": True, "populate_by_name": True}
